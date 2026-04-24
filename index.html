@@ -1,0 +1,1598 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>TCC Experience — Multiplayer</title>
+<meta name="description" content="Jogo educativo de TCC com salas multiplayer e ranking global">
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&family=Rajdhani:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --neon-blue:#00d4ff;--neon-green:#00ff88;--neon-purple:#b44aff;
+  --neon-pink:#ff2d75;--neon-yellow:#ffe44d;--neon-red:#ff3355;
+  --neon-orange:#ff8844;--bg-dark:#0a0a0f;--bg-card:rgba(12,12,22,.88);
+  --bg-card2:rgba(18,18,32,.92);--text:#e8e8f0;--text2:#8888aa;--r:12px;
+}
+html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}
+body{font-family:'Rajdhani',sans-serif;background:var(--bg-dark);color:var(--text);min-height:100vh;overflow-x:hidden;-webkit-tap-highlight-color:transparent;display:flex;flex-direction:column}
+
+/* Background */
+.bg-layer{position:fixed;inset:0;z-index:0;pointer-events:none}
+.bg-grid{background-image:linear-gradient(rgba(0,212,255,.04) 1px,transparent 1px),linear-gradient(90deg,rgba(0,212,255,.04) 1px,transparent 1px);background-size:40px 40px}
+.bg-orbs{overflow:hidden}
+.orb{position:absolute;border-radius:50%;filter:blur(90px);opacity:.12;animation:orbF 20s ease-in-out infinite}
+.orb:nth-child(1){width:420px;height:420px;background:var(--neon-blue);top:-100px;left:-80px}
+.orb:nth-child(2){width:360px;height:360px;background:var(--neon-purple);bottom:10%;right:-80px;animation-delay:-7s;animation-duration:25s}
+.orb:nth-child(3){width:300px;height:300px;background:var(--neon-green);top:40%;left:20%;animation-delay:-14s;animation-duration:22s}
+@keyframes orbF{0%,100%{transform:translate(0,0) scale(1)}33%{transform:translate(40px,-30px) scale(1.08)}66%{transform:translate(-30px,20px) scale(.92)}}
+.scanline{background:repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,212,255,.012) 3px,rgba(0,212,255,.012) 6px)}
+.particles{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden}
+.particle{position:absolute;width:2px;height:2px;border-radius:50%;opacity:.4;animation:particleFloat linear infinite}
+@keyframes particleFloat{0%{transform:translateY(100vh) scale(0);opacity:0}10%,90%{opacity:.4}100%{transform:translateY(-10vh) scale(1);opacity:0}}
+
+/* Animations */
+@keyframes fadeUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+@keyframes slideDown{from{opacity:0;transform:translateY(-20px)}to{opacity:1;transform:translateY(0)}}
+@keyframes pop{0%{transform:scale(.5);opacity:0}60%{transform:scale(1.15)}100%{transform:scale(1);opacity:1}}
+@keyframes shake{0%,100%{transform:translateX(0)}20%{transform:translateX(-8px)}40%{transform:translateX(8px)}60%{transform:translateX(-5px)}80%{transform:translateX(5px)}}
+@keyframes glitch{0%{transform:translate(0);filter:hue-rotate(0deg)}20%{transform:translate(-3px,2px);filter:hue-rotate(90deg)}40%{transform:translate(3px,-2px);filter:hue-rotate(180deg)}60%{transform:translate(-2px,-1px);filter:hue-rotate(270deg)}80%{transform:translate(2px,1px);filter:hue-rotate(360deg)}100%{transform:translate(0);filter:hue-rotate(0deg)}}
+@keyframes correctPulse{0%{box-shadow:0 0 0 rgba(0,255,136,0)}40%{box-shadow:0 0 40px rgba(0,255,136,.7),0 0 80px rgba(0,255,136,.2)}100%{box-shadow:0 0 0 rgba(0,255,136,0)}}
+@keyframes wrongPulse{0%{box-shadow:0 0 0 rgba(255,51,85,0)}40%{box-shadow:0 0 40px rgba(255,51,85,.7),0 0 80px rgba(255,51,85,.2)}100%{box-shadow:0 0 0 rgba(255,51,85,0)}}
+@keyframes scoreFloat{0%{opacity:1;transform:translateY(0) scale(1)}100%{opacity:0;transform:translateY(-70px) scale(1.4)}}
+@keyframes comboPop{0%{transform:scale(.6);opacity:0}50%{transform:scale(1.25)}100%{transform:scale(1);opacity:1}}
+@keyframes confettiFall{0%{transform:translateY(-10vh) rotate(0deg);opacity:1}100%{transform:translateY(110vh) rotate(720deg);opacity:0}}
+@keyframes timerWarning{0%,100%{color:var(--neon-red);text-shadow:0 0 10px rgba(255,51,85,.8)}50%{color:#fff;text-shadow:0 0 20px rgba(255,51,85,1),0 0 40px rgba(255,51,85,.5)}}
+@keyframes borderPulse{0%,100%{border-color:rgba(255,51,85,.3);box-shadow:0 0 10px rgba(255,51,85,.2)}50%{border-color:var(--neon-red);box-shadow:0 0 25px rgba(255,51,85,.6),0 0 50px rgba(255,51,85,.3)}}
+@keyframes borderGlow{0%,100%{border-color:rgba(0,212,255,.3)}50%{border-color:rgba(0,212,255,.8)}}
+@keyframes notifySlide{from{transform:translateX(100%);opacity:0}to{transform:translateX(0);opacity:1}}
+
+/* Container & Screens */
+.container{position:relative;z-index:2;max-width:500px;margin:0 auto;padding:16px;min-height:100vh;flex:1}
+.screen{display:none;animation:fadeUp .35s ease}
+.screen.active{display:block}
+.hidden{display:none!important}
+
+/* Landing & Welcome */
+.landing{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;text-align:center;padding:30px 20px}
+.logo-wrap{margin-bottom:24px;animation:slideDown .6s ease}
+.logo-icon{width:90px;height:90px;margin:0 auto 12px}
+.logo-icon svg{width:100%;height:100%}
+.logo-title{font-family:'Orbitron',sans-serif;font-size:2.1rem;font-weight:900;background:linear-gradient(135deg,var(--neon-blue),var(--neon-purple),var(--neon-green));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;letter-spacing:2px;line-height:1.15}
+.logo-badge{font-family:'Rajdhani',sans-serif;font-size:.85rem;font-weight:600;color:var(--neon-green);letter-spacing:3px;text-transform:uppercase;margin-top:6px;opacity:.8}
+.landing-desc{font-size:1.05rem;color:var(--text2);max-width:340px;margin:0 auto 28px;line-height:1.5}
+.landing-features{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-bottom:32px}
+.feature-tag{padding:5px 14px;border-radius:20px;font-size:.78rem;font-weight:600;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.03);color:var(--text2);letter-spacing:.5px}
+
+/* Welcome Screen */
+.welcome-info{background:var(--bg-card);border:1px solid rgba(0,212,255,.2);border-radius:var(--r);padding:20px;margin-bottom:24px;text-align:left}
+.welcome-info h3{font-family:'Orbitron',sans-serif;font-size:1rem;color:var(--neon-blue);margin-bottom:12px}
+.welcome-info ul{list-style:none;padding-left:0}
+.welcome-info li{padding:6px 0;color:var(--text2);font-size:.9rem}
+.welcome-info li::before{content:'▸ ';color:var(--neon-green);margin-right:8px}
+.welcome-buttons{display:flex;flex-direction:column;gap:12px;width:100%;max-width:320px}
+
+/* Inputs & Buttons */
+.input-group{width:100%;max-width:320px;margin-bottom:16px;animation:fadeUp .5s ease .1s both}
+.input-group label{display:block;font-size:.85rem;color:var(--text2);margin-bottom:6px;text-align:left;font-weight:600;letter-spacing:1px}
+.text-input{width:100%;padding:14px 18px;border-radius:var(--r);border:2px solid rgba(0,212,255,.2);background:rgba(10,10,20,.8);color:var(--text);font-family:'Rajdhani',sans-serif;font-size:1.1rem;font-weight:600;outline:none;transition:all .25s ease}
+.text-input:focus{border-color:var(--neon-blue);box-shadow:0 0 15px rgba(0,212,255,.15)}
+.text-input::placeholder{color:rgba(136,136,170,.5)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:14px 32px;border-radius:var(--r);border:none;cursor:pointer;font-family:'Orbitron',sans-serif;font-size:.95rem;font-weight:700;letter-spacing:1px;transition:all .25s ease;position:relative;overflow:hidden;-webkit-user-select:none;user-select:none}
+.btn-primary{background:linear-gradient(135deg,var(--neon-blue),var(--neon-purple));color:#fff;box-shadow:0 4px 20px rgba(0,212,255,.3);width:100%;max-width:320px;animation:fadeUp .5s ease .2s both}
+.btn-primary:hover{box-shadow:0 4px 30px rgba(0,212,255,.5);transform:translateY(-2px)}
+.btn-primary:active{transform:translateY(0)}
+.btn-primary::after{content:'';position:absolute;top:-50%;left:-50%;width:200%;height:200%;background:linear-gradient(45deg,transparent,rgba(255,255,255,.08),transparent);transform:rotate(45deg);transition:all .5s}
+.btn-primary:hover::after{left:100%}
+.btn-secondary{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.15);color:var(--text);padding:10px 20px;font-size:.8rem}
+.btn-secondary:hover{background:rgba(255,255,255,.1);border-color:rgba(255,255,255,.3)}
+.btn-next{background:linear-gradient(135deg,var(--neon-green),#00cc6a);color:#0a0a0f;box-shadow:0 4px 20px rgba(0,255,136,.25);width:100%;margin-top:12px}
+.btn-next:hover{box-shadow:0 4px 30px rgba(0,255,136,.4);transform:translateY(-2px)}
+.btn-restart{background:linear-gradient(135deg,var(--neon-purple),var(--neon-pink));color:#fff;box-shadow:0 4px 20px rgba(180,74,255,.25);width:100%;margin-top:8px}
+.btn-finish{background:linear-gradient(135deg,#ffd700,#ffaa00);color:#0a0a0f;font-weight:800;box-shadow:0 4px 20px rgba(255,215,0,.25);flex:1}
+.btn-finish:hover{box-shadow:0 4px 30px rgba(255,215,0,.4);transform:translateY(-2px)}
+.btn-finish:disabled{opacity:.5;cursor:not-allowed;transform:none}
+.btn-leave{background:linear-gradient(135deg,var(--neon-red),#cc2944);color:#fff;font-weight:700;box-shadow:0 4px 20px rgba(255,51,85,.25);flex:1}
+.btn-leave:hover{box-shadow:0 4px 30px rgba(255,51,85,.4);transform:translateY(-2px)}
+.btn-create{background:linear-gradient(135deg,var(--neon-green),#00cc6a);color:#0a0a0f;width:100%;max-width:320px;margin-bottom:12px}
+.btn-join{background:linear-gradient(135deg,var(--neon-blue),var(--neon-purple));color:#fff;width:100%;max-width:320px}
+
+/* Room Code */
+.room-code{font-family:'Orbitron',sans-serif;font-size:2rem;font-weight:900;letter-spacing:8px;color:var(--neon-yellow);text-shadow:0 0 15px rgba(255,228,77,.5);margin:10px 0;padding:10px 20px;background:rgba(255,228,77,.1);border-radius:var(--r);border:2px solid rgba(255,228,77,.3);display:inline-block}
+.room-label{font-size:.85rem;color:var(--text2);margin-bottom:8px}
+
+/* Timer */
+.timer-bar{position:fixed;top:0;left:0;right:0;height:4px;z-index:100;background:rgba(255,255,255,.05)}
+.timer-fill{height:100%;transition:width 1s linear;background:linear-gradient(90deg,var(--neon-green),var(--neon-yellow),var(--neon-red))}
+.timer-display{position:fixed;top:8px;right:16px;z-index:101;font-family:'Orbitron',sans-serif;font-size:1.2rem;font-weight:800;padding:6px 14px;border-radius:20px;background:rgba(18,18,32,.9);border:2px solid var(--neon-blue);box-shadow:0 0 15px rgba(0,212,255,.3)}
+.timer-display.warning{animation:timerWarning 1s infinite;border-color:var(--neon-red);box-shadow:0 0 20px rgba(255,51,85,.6)}
+
+/* HUD */
+.hud{position:sticky;top:0;z-index:10;background:var(--bg-card2);backdrop-filter:blur(12px);border-bottom:1px solid rgba(0,212,255,.1);padding:10px 14px;margin:-16px -16px 16px;border-radius:0 0 var(--r) var(--r);animation:slideDown .3s ease}
+.hud-row{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+.hud-player{font-family:'Orbitron',sans-serif;font-size:.8rem;color:var(--neon-blue);font-weight:600}
+.hud-score{font-family:'Orbitron',sans-serif;font-size:1.1rem;font-weight:800;color:var(--neon-green)}
+.hud-combo{font-family:'Orbitron',sans-serif;font-size:.85rem;font-weight:700;color:var(--neon-orange);display:flex;align-items:center;gap:4px}
+.hud-combo .fire{font-size:1rem}
+.hud-combo.combo-high{color:var(--neon-yellow);animation:comboPop .3s ease}
+.hud-turn{font-family:'Orbitron',sans-serif;font-size:.75rem;font-weight:700;color:var(--neon-yellow);padding:4px 10px;background:rgba(255,228,77,.1);border-radius:12px;border:1px solid rgba(255,228,77,.3)}
+.energy-bar-wrap{margin-top:8px;height:4px;background:rgba(255,255,255,.05);border-radius:4px;overflow:hidden}
+.energy-bar{height:100%;border-radius:4px;transition:width .5s ease;background:linear-gradient(90deg,var(--neon-blue),var(--neon-green));box-shadow:0 0 8px rgba(0,255,136,.4)}
+
+/* Level */
+.level-section{margin-bottom:16px}
+.level-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+.level-label{font-family:'Orbitron',sans-serif;font-size:.7rem;font-weight:600;color:var(--neon-purple);letter-spacing:1px}
+.level-xp{font-family:'Orbitron',sans-serif;font-size:.65rem;color:var(--text2)}
+.level-bar-bg{height:6px;background:rgba(255,255,255,.05);border-radius:6px;overflow:hidden}
+.level-bar-fill{height:100%;border-radius:6px;transition:width .6s ease;background:linear-gradient(90deg,var(--neon-purple),var(--neon-blue))}
+
+/* Nav Tabs */
+.nav-tabs{display:flex;gap:6px;margin-bottom:16px}
+.nav-tab{flex:1;padding:10px 8px;border-radius:var(--r);border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.03);cursor:pointer;text-align:center;font-family:'Rajdhani',sans-serif;font-size:.8rem;font-weight:600;color:var(--text2);transition:all .25s ease;letter-spacing:.5px;-webkit-user-select:none;user-select:none}
+.nav-tab.active{border-color:var(--neon-blue);color:var(--neon-blue);background:rgba(0,212,255,.08);box-shadow:0 0 10px rgba(0,212,255,.1)}
+.nav-tab:hover{background:rgba(255,255,255,.06)}
+.tab-content{display:none;animation:fadeUp .3s ease}
+.tab-content.active{display:block}
+
+/* Color Selector */
+.section-title{font-family:'Orbitron',sans-serif;font-size:1rem;font-weight:700;text-align:center;margin-bottom:14px;letter-spacing:1px}
+.color-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:20px}
+.color-btn{padding:16px 12px;border-radius:var(--r);border:2px solid transparent;cursor:pointer;text-align:center;transition:all .25s ease;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:.95rem;position:relative;overflow:hidden;-webkit-user-select:none;user-select:none}
+.color-btn:hover{transform:translateY(-2px)}
+.color-btn:active{transform:scale(.96)}
+.color-btn.red{background:rgba(255,51,85,.1);border-color:rgba(255,51,85,.3);color:#ff6b8a}
+.color-btn.red:hover{border-color:var(--neon-red);box-shadow:0 0 20px rgba(255,51,85,.25)}
+.color-btn.blue{background:rgba(0,212,255,.1);border-color:rgba(0,212,255,.3);color:#4dd8ff}
+.color-btn.blue:hover{border-color:var(--neon-blue);box-shadow:0 0 20px rgba(0,212,255,.25)}
+.color-btn.yellow{background:rgba(255,228,77,.1);border-color:rgba(255,228,77,.3);color:#ffe87d}
+.color-btn.yellow:hover{border-color:var(--neon-yellow);box-shadow:0 0 20px rgba(255,228,77,.25)}
+.color-btn.green{background:rgba(0,255,136,.1);border-color:rgba(0,255,136,.3);color:#5affaa}
+.color-btn.green:hover{border-color:var(--neon-green);box-shadow:0 0 20px rgba(0,255,136,.25)}
+.color-btn:disabled{opacity:.3;cursor:not-allowed;transform:none}
+.color-emoji{font-size:1.4rem;display:block;margin-bottom:4px}
+
+/* Special Houses */
+.special-houses{margin:16px 0 20px;padding:14px;background:rgba(255,228,77,.04);border:1px dashed rgba(255,228,77,.25);border-radius:var(--r)}
+.special-houses-title{font-family:'Orbitron',sans-serif;font-size:.75rem;font-weight:700;text-align:center;color:var(--neon-yellow);margin-bottom:10px;letter-spacing:1px}
+.special-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.special-btn{
+  padding:12px 8px;border-radius:10px;border:2px solid transparent;cursor:pointer;
+  text-align:center;transition:all .2s ease;font-family:'Rajdhani',sans-serif;
+  font-weight:700;font-size:.8rem;display:flex;flex-direction:column;align-items:center;gap:4px;
+  background:rgba(255,255,255,.03);color:var(--text);-webkit-user-select:none;user-select:none;
+}
+.special-btn:hover{transform:translateY(-2px);background:rgba(255,255,255,.08)}
+.special-btn:active{transform:scale(.95)}
+.special-btn:disabled{opacity:.3;cursor:not-allowed;transform:none}
+.special-btn.insight{border-color:rgba(255,228,77,.4);color:#ffe87d}
+.special-btn.insight:hover{border-color:var(--neon-yellow);box-shadow:0 0 15px rgba(255,228,77,.3)}
+.special-btn.impulse{border-color:rgba(255,51,85,.4);color:#ff6b8a}
+.special-btn.impulse:hover{border-color:var(--neon-red);box-shadow:0 0 15px rgba(255,51,85,.3)}
+.special-btn.reevaluate{border-color:rgba(0,212,255,.4);color:#4dd8ff}
+.special-btn.reevaluate:hover{border-color:var(--neon-blue);box-shadow:0 0 15px rgba(0,212,255,.3)}
+.special-emoji{font-size:1.3rem}
+.special-label{font-size:.65rem;opacity:.9;line-height:1.2}
+
+/* Question Card */
+.question-card{background:var(--bg-card);border:1px solid rgba(255,255,255,.08);border-radius:var(--r);padding:20px;margin-bottom:16px;backdrop-filter:blur(8px)}
+.question-meta{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+.question-category{font-size:.75rem;font-weight:700;padding:4px 10px;border-radius:20px;letter-spacing:1px;text-transform:uppercase}
+.cat-red{background:rgba(255,51,85,.15);color:#ff6b8a;border:1px solid rgba(255,51,85,.3)}
+.cat-blue{background:rgba(0,212,255,.15);color:#4dd8ff;border:1px solid rgba(0,212,255,.3)}
+.cat-yellow{background:rgba(255,228,77,.15);color:#ffe87d;border:1px solid rgba(255,228,77,.3)}
+.cat-green{background:rgba(0,255,136,.15);color:#5affaa;border:1px solid rgba(0,255,136,.3)}
+.cat-special{background:rgba(255,228,77,.15);color:var(--neon-yellow);border:1px solid rgba(255,228,77,.3)}
+.question-num{font-family:'Orbitron',sans-serif;font-size:.7rem;color:var(--text2)}
+.question-text{font-size:1.1rem;font-weight:600;line-height:1.5;margin-bottom:18px;color:var(--text)}
+.options{display:flex;flex-direction:column;gap:10px}
+.option-btn{display:flex;align-items:center;gap:12px;padding:16px;border-radius:var(--r);border:2px solid rgba(255,255,255,.1);background:rgba(255,255,255,.03);cursor:pointer;transition:all .2s ease;font-family:'Rajdhani',sans-serif;font-size:1rem;font-weight:600;color:var(--text);text-align:left;-webkit-user-select:none;user-select:none}
+.option-btn:hover{border-color:rgba(0,212,255,.4);background:rgba(0,212,255,.05)}
+.option-btn:active{transform:scale(.98)}
+.option-btn.disabled{pointer-events:none;opacity:.5}
+.option-btn.selected-correct{border-color:var(--neon-green)!important;background:rgba(0,255,136,.1)!important;animation:correctPulse .6s ease;opacity:1!important}
+.option-btn.selected-wrong{border-color:var(--neon-red)!important;background:rgba(255,51,85,.1)!important;animation:wrongPulse .6s ease;opacity:1!important}
+.option-btn.reveal-correct{border-color:var(--neon-green)!important;background:rgba(0,255,136,.08)!important;opacity:1!important}
+.option-letter{width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-family:'Orbitron',sans-serif;font-size:.85rem;font-weight:700;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);flex-shrink:0}
+
+/* Feedback */
+.feedback{border-radius:var(--r);padding:16px;margin:16px 0;animation:pop .3s ease}
+.feedback.correct{background:rgba(0,255,136,.08);border:1px solid rgba(0,255,136,.2)}
+.feedback.wrong{background:rgba(255,51,85,.08);border:1px solid rgba(255,51,85,.2);animation:borderPulse 1s ease}
+.feedback-special{background:rgba(255,228,77,.08)!important;border-color:rgba(255,228,77,.3)!important}
+.feedback-special .feedback-header{color:var(--neon-yellow)!important}
+.feedback-header{display:flex;align-items:center;gap:8px;margin-bottom:6px;font-family:'Orbitron',sans-serif;font-size:.85rem;font-weight:700}
+.feedback.correct .feedback-header{color:var(--neon-green)}
+.feedback.wrong .feedback-header{color:var(--neon-red)}
+.feedback-text{font-size:.95rem;color:var(--text2);line-height:1.4}
+.feedback-points{font-family:'Orbitron',sans-serif;font-size:.8rem;margin-top:8px;color:var(--neon-green);font-weight:700}
+.feedback-points.zero{color:var(--text2)}
+.feedback-combo-loss{font-size:.8rem;color:var(--neon-orange);margin-top:4px;font-weight:600}
+
+/* Floating Elements */
+.float-score{position:fixed;pointer-events:none;z-index:100;font-family:'Orbitron',sans-serif;font-weight:800;font-size:1.4rem;animation:scoreFloat .8s ease forwards}
+.float-score.positive{color:var(--neon-green);text-shadow:0 0 10px rgba(0,255,136,.5)}
+.float-score.negative{color:var(--neon-red);text-shadow:0 0 10px rgba(255,51,85,.5)}
+.combo-break{position:fixed;inset:0;z-index:200;display:flex;align-items:center;justify-content:center;background:rgba(255,51,85,.08);backdrop-filter:blur(4px);animation:comboBreakIn .3s ease;pointer-events:none}
+@keyframes comboBreakIn{from{opacity:0}to{opacity:1}}
+.combo-break-text{font-family:'Orbitron',sans-serif;font-size:1.8rem;font-weight:900;color:var(--neon-red);animation:glitch .5s ease;text-shadow:0 0 20px rgba(255,51,85,.5)}
+
+/* Ranking */
+.ranking-card{background:var(--bg-card);border:1px solid rgba(255,255,255,.08);border-radius:var(--r);padding:16px;margin-top:16px;backdrop-filter:blur(8px)}
+.ranking-title{font-family:'Orbitron',sans-serif;font-size:.85rem;font-weight:700;text-align:center;margin-bottom:12px;color:var(--neon-yellow);letter-spacing:1px}
+.ranking-list{list-style:none}
+.ranking-item{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;margin-bottom:4px;transition:background .2s}
+.ranking-item:nth-child(1){background:rgba(255,228,77,.06)}
+.ranking-item:nth-child(2){background:rgba(192,192,192,.04)}
+.ranking-item:nth-child(3){background:rgba(205,127,50,.04)}
+.ranking-item.current{border:1px solid rgba(0,212,255,.3);background:rgba(0,212,255,.06)}
+.rk-pos{font-family:'Orbitron',sans-serif;font-size:.75rem;font-weight:700;width:24px;text-align:center;flex-shrink:0}
+.rk-pos.gold{color:var(--neon-yellow)}
+.rk-pos.silver{color:#c0c0c0}
+.rk-pos.bronze{color:#cd7f32}
+.rk-name{flex:1;font-weight:600;font-size:.9rem}
+.rk-score{font-family:'Orbitron',sans-serif;font-size:.75rem;font-weight:700;color:var(--neon-green)}
+.rk-current-tag{font-size:.6rem;font-weight:700;color:var(--neon-blue);background:rgba(0,212,255,.1);padding:2px 6px;border-radius:10px}
+
+/* Global Ranking - Top 3 */
+.global-ranking-wrap{margin-top:20px}
+.global-ranking-list{list-style:none;padding:0}
+.global-ranking-item{display:flex;align-items:center;gap:12px;padding:12px 16px;margin-bottom:8px;background:rgba(255,255,255,.03);border-radius:12px;border:1px solid rgba(255,255,255,.06);transition:transform .2s}
+.global-ranking-item:hover{transform:translateX(4px)}
+.global-ranking-item.top1{background:linear-gradient(135deg,rgba(255,228,77,.15),rgba(255,215,0,.08));border:2px solid var(--neon-yellow);box-shadow:0 0 20px rgba(255,228,77,.2)}
+.global-ranking-item.top2{background:linear-gradient(135deg,rgba(192,192,192,.15),rgba(169,169,169,.08));border:2px solid #c0c0c0}
+.global-ranking-item.top3{background:linear-gradient(135deg,rgba(205,127,50,.15),rgba(184,115,51,.08));border:2px solid #cd7f32}
+.gr-pos{font-family:'Orbitron',sans-serif;font-size:1.2rem;font-weight:900;width:36px;text-align:center}
+.gr-pos.gold{color:var(--neon-yellow);font-size:1.5rem}
+.gr-pos.silver{color:#c0c0c0;font-size:1.3rem}
+.gr-pos.bronze{color:#cd7f32;font-size:1.3rem}
+.gr-name{flex:1;font-weight:700;font-size:1rem}
+.gr-wins{font-family:'Orbitron',sans-serif;font-size:.9rem;font-weight:700;color:var(--neon-green)}
+.gr-title{font-size:.65rem;font-weight:700;padding:3px 10px;border-radius:12px;text-transform:uppercase;letter-spacing:.5px}
+.gr-title.iniciante{background:rgba(136,136,170,.2);color:var(--text2)}
+.gr-title.aprendiz{background:rgba(0,212,255,.15);color:var(--neon-blue)}
+.gr-title.mestre{background:rgba(180,74,255,.15);color:var(--neon-purple)}
+.gr-title.deus{background:rgba(0,255,136,.15);color:var(--neon-green);text-shadow:0 0 8px rgba(0,255,136,.4)}
+
+/* Lobby */
+.lobby-card{background:var(--bg-card);border:1px solid rgba(255,255,255,.08);border-radius:var(--r);padding:16px;margin:16px 0}
+.lobby-title{font-family:'Orbitron',sans-serif;font-size:.9rem;font-weight:700;margin-bottom:12px;text-align:center;color:var(--neon-blue)}
+.players-list{list-style:none}
+.players-list li{display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:8px;margin-bottom:4px;background:rgba(255,255,255,.03)}
+.player-status{width:10px;height:10px;border-radius:50%;background:var(--neon-green);flex-shrink:0}
+.player-status.waiting{background:var(--neon-orange)}
+.player-status.finished{background:var(--neon-yellow)}
+.player-status.playing{background:var(--neon-blue)}
+.player-name{flex:1;font-weight:600}
+.player-order{font-family:'Orbitron',sans-serif;font-size:.7rem;color:var(--neon-yellow);margin-right:8px}
+.player-score{font-family:'Orbitron',sans-serif;font-size:.8rem;color:var(--neon-green);font-weight:700}
+
+/* Notifications */
+.notification{position:fixed;top:80px;right:16px;z-index:200;background:var(--bg-card2);border:1px solid var(--neon-blue);border-radius:var(--r);padding:12px 16px;box-shadow:0 4px 20px rgba(0,0,0,.3);animation:notifySlide .3s ease;max-width:280px}
+.notification-header{display:flex;align-items:center;gap:8px;margin-bottom:6px;font-family:'Orbitron',sans-serif;font-size:.85rem;font-weight:700;color:var(--neon-blue)}
+.notification-text{font-size:.85rem;color:var(--text2)}
+
+/* Action Buttons */
+.action-buttons{position:fixed;bottom:16px;left:16px;right:16px;z-index:50;display:flex;gap:10px}
+.action-buttons .btn{padding:12px 16px;font-size:.85rem;border-radius:10px}
+
+/* Turn Indicator */
+.turn-indicator{background:linear-gradient(135deg,rgba(255,228,77,.1),rgba(255,215,0,.05));border:2px solid var(--neon-yellow);border-radius:var(--r);padding:12px;margin:16px 0;text-align:center}
+.turn-indicator.my-turn{background:linear-gradient(135deg,rgba(0,255,136,.1),rgba(0,255,136,.05));border-color:var(--neon-green);animation:borderGlow 2s infinite}
+.turn-text{font-family:'Orbitron',sans-serif;font-size:.85rem;font-weight:700;color:var(--neon-yellow)}
+.turn-text.my-turn{color:var(--neon-green)}
+
+/* History */
+.history-item{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;margin-bottom:6px;background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.04)}
+.history-icon{font-size:1.1rem;flex-shrink:0}
+.history-text{flex:1;font-size:.85rem;color:var(--text2);line-height:1.3}
+.history-points{font-family:'Orbitron',sans-serif;font-size:.7rem;font-weight:700}
+.history-points.pos{color:var(--neon-green)}
+.history-points.neg{color:var(--neon-red)}
+.empty-state{text-align:center;padding:30px 20px;color:var(--text2)}
+.empty-state .icon{font-size:2.5rem;margin-bottom:8px;opacity:.4}
+.empty-state p{font-size:.9rem}
+
+/* End Screen */
+.end-screen{text-align:center;padding:30px 0}
+.end-title{font-family:'Orbitron',sans-serif;font-size:1.5rem;font-weight:900;margin-bottom:6px;background:linear-gradient(135deg,var(--neon-blue),var(--neon-purple));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.end-subtitle{color:var(--text2);font-size:1rem;margin-bottom:24px}
+.winner-badge{display:inline-block;padding:8px 20px;border-radius:30px;background:linear-gradient(135deg,var(--neon-yellow),#ffaa00);color:#0a0a0f;font-family:'Orbitron',sans-serif;font-weight:800;font-size:1.1rem;margin-bottom:16px;box-shadow:0 0 20px rgba(255,215,0,.4)}
+.final-ranking{background:var(--bg-card);border:1px solid rgba(255,255,255,.08);border-radius:var(--r);padding:16px;margin:16px 0}
+.final-ranking-title{font-family:'Orbitron',sans-serif;font-size:.9rem;font-weight:700;text-align:center;margin-bottom:12px;color:var(--neon-yellow)}
+.stats-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:24px}
+.stat-card{background:var(--bg-card);border:1px solid rgba(255,255,255,.06);border-radius:var(--r);padding:16px;text-align:center}
+.stat-value{font-family:'Orbitron',sans-serif;font-size:1.6rem;font-weight:800;color:var(--neon-green)}
+.stat-value.blue{color:var(--neon-blue)}
+.stat-value.purple{color:var(--neon-purple)}
+.stat-value.yellow{color:var(--neon-yellow)}
+.stat-label{font-size:.75rem;color:var(--text2);margin-top:4px;font-weight:600;letter-spacing:.5px;text-transform:uppercase}
+
+/* Footer */
+.footer{background:var(--bg-card2);border-top:1px solid rgba(0,212,255,.1);padding:20px 16px;margin-top:auto;text-align:center}
+.footer-text{font-size:.85rem;color:var(--text2)}
+.footer-creator{font-family:'Orbitron',sans-serif;font-size:.9rem;font-weight:600;color:var(--neon-blue);margin-top:4px}
+
+/* Confetti */
+.confetti-piece{position:fixed;z-index:100;pointer-events:none;width:8px;height:8px;opacity:.9;animation:confettiFall linear forwards}
+
+/* Utils */
+.divider{height:1px;background:linear-gradient(90deg,transparent,rgba(0,212,255,.2),transparent);margin:16px 0}
+.text-center{text-align:center}
+.mt-12{margin-top:12px}.mt-16{margin-top:16px}.mb-8{margin-bottom:8px}.mb-16{margin-bottom:16px}
+
+/* Responsive */
+@media(min-width:480px){.logo-title{font-size:2.6rem}.question-text{font-size:1.2rem}.container{padding:20px}}
+@media(max-width:360px){.logo-title{font-size:1.8rem}.color-btn{padding:14px 10px;font-size:.9rem}.btn{padding:12px 24px;font-size:.9rem}}
+</style>
+</head>
+<body>
+
+<!-- Background -->
+<div class="bg-layer bg-grid"></div>
+<div class="bg-layer bg-orbs"><div class="orb"></div><div class="orb"></div><div class="orb"></div></div>
+<div class="bg-layer scanline"></div>
+<div class="particles" id="particles"></div>
+
+<!-- Timer Bar -->
+<div class="timer-bar"><div class="timer-fill" id="timerFill" style="width:100%"></div></div>
+<div class="timer-display hidden" id="timerDisplay">10:00</div>
+
+<!-- Notifications Container -->
+<div id="notificationsContainer"></div>
+
+<!-- Main Container -->
+<div class="container">
+
+  <!-- SCREEN 1: HOME (Tela Inicial) -->
+<div class="screen active" id="screen-home">
+  <div class="landing">
+    <div class="logo-wrap">
+      <div class="logo-icon">
+        <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="50" cy="50" r="45" stroke="url(#g1)" stroke-width="2" opacity=".3"/>
+          <circle cx="50" cy="50" r="35" stroke="url(#g1)" stroke-width="1.5" opacity=".2"/>
+          <path d="M35 35 L50 25 L65 35 L65 55 L50 65 L35 55Z" stroke="url(#g1)" stroke-width="2" fill="rgba(0,212,255,.05)"/>
+          <circle cx="50" cy="45" r="8" fill="url(#g1)" opacity=".6"/>
+          <path d="M50 53 L50 70" stroke="url(#g1)" stroke-width="2"/>
+          <path d="M42 58 L50 63 L58 58" stroke="url(#g1)" stroke-width="1.5" fill="none"/>
+          <defs><linearGradient id="g1" x1="0" y1="0" x2="100" y2="100"><stop stop-color="#00d4ff"/><stop offset=".5" stop-color="#b44aff"/><stop offset="1" stop-color="#00ff88"/></linearGradient></defs>
+        </svg>
+      </div>
+      <div class="logo-title">TCC<br>EXPERIENCE</div>
+      <div class="logo-badge">⚡ Jogo Educativo Multiplayer</div>
+    </div>
+    
+    <p class="landing-desc" id="welcomeMessage">Bem-vindo de volta!</p>
+
+    <div class="welcome-buttons">
+      <button class="btn btn-create" id="btnCreateRoomHome">🎲 CRIAR SALA</button>
+      <button class="btn btn-join" id="btnJoinRoomHome">🔗 ENTRAR EM SALA</button>
+      <button class="btn btn-secondary" id="btnLogout" style="margin-top:12px">🚪 SAIR</button>
+    </div>
+
+    <!-- Global Ranking -->
+    <div id="global-ranking-wrap-home" class="global-ranking-wrap" style="margin-top:32px">
+      <p class="section-title" style="color:var(--neon-yellow)">🏆 TOP 3 VENCEDORES</p>
+      <ul id="global-ranking-list-home" class="global-ranking-list"></ul>
+    </div>
+  </div>
+</div>
+
+<!-- SCREEN 2: LOGIN (apenas para primeiro acesso) -->
+<div class="screen" id="screen-login">
+  <div class="landing">
+    <div class="logo-wrap">
+      <div class="logo-icon">
+        <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="50" cy="50" r="45" stroke="url(#g1)" stroke-width="2" opacity=".3"/>
+          <circle cx="50" cy="50" r="35" stroke="url(#g1)" stroke-width="1.5" opacity=".2"/>
+          <path d="M35 35 L50 25 L65 35 L65 55 L50 65 L35 55Z" stroke="url(#g1)" stroke-width="2" fill="rgba(0,212,255,.05)"/>
+          <circle cx="50" cy="45" r="8" fill="url(#g1)" opacity=".6"/>
+          <path d="M50 53 L50 70" stroke="url(#g1)" stroke-width="2"/>
+          <path d="M42 58 L50 63 L58 58" stroke="url(#g1)" stroke-width="1.5" fill="none"/>
+          <defs><linearGradient id="g1" x1="0" y1="0" x2="100" y2="100"><stop stop-color="#00d4ff"/><stop offset=".5" stop-color="#b44aff"/><stop offset="1" stop-color="#00ff88"/></linearGradient></defs>
+        </svg>
+      </div>
+      <div class="logo-title">TCC<br>EXPERIENCE</div>
+      <div class="logo-badge">⚡ Jogo Educativo Multiplayer</div>
+    </div>
+    <p class="landing-desc">Entre com seu nome para começar a jogar</p>
+    <div class="input-group">
+      <label>NOME DE USUÁRIO</label>
+      <input type="text" class="text-input" id="loginName" placeholder="Digite seu nome..." maxlength="20">
+    </div>
+    <button class="btn btn-primary" id="btnLogin">🚀 CONTINUAR</button>
+  </div>
+</div>
+
+  <!-- SCREEN 3: LOBBY -->
+  <div class="screen" id="screen-lobby">
+    <div class="landing">
+      <p class="section-title">🎮 SALA: <span class="room-code" id="lobbyRoomCode">---</span></p>
+      <p style="color:var(--text2);margin-bottom:20px">Aguardando jogadores... O host inicia quando todos estiverem prontos.</p>
+      
+      <div class="lobby-card">
+        <p class="lobby-title">👥 JOGADORES (<span id="playerCount">0</span>/10)</p>
+        <ul class="players-list" id="playersList"></ul>
+      </div>
+
+      <button class="btn btn-primary hidden" id="btnStartAsHost" style="background:linear-gradient(135deg,var(--neon-green),#00cc6a)">🎲 INICIAR PARTIDA</button>
+      <button class="btn btn-leave mt-12" id="btnLeaveLobby" style="width:100%">🚪 SAIR DA SALA</button>
+    </div>
+  </div>
+
+  <!-- SCREEN 4: GAME -->
+  <div class="screen" id="screen-game">
+
+    <!-- HUD -->
+    <div class="hud">
+      <div class="hud-row">
+        <div class="hud-player" id="hudName">Jogador</div>
+        <div class="hud-score" id="hudScore">0 pts</div>
+        <div class="hud-combo" id="hudCombo"><span class="fire">🔥</span> Combo: 0</div>
+      </div>
+      <div class="energy-bar-wrap"><div class="energy-bar" id="energyBar" style="width:0%"></div></div>
+    </div>
+
+    <!-- Turn Indicator -->
+    <div id="turnIndicator" class="turn-indicator hidden">
+      <div class="turn-text" id="turnText">Aguardando sua vez...</div>
+    </div>
+
+    <!-- Level -->
+    <div class="level-section">
+      <div class="level-header">
+        <span class="level-label" id="levelLabel">NÍVEL 1 — INICIANTE</span>
+        <span class="level-xp" id="levelXP">0 / 100 XP</span>
+      </div>
+      <div class="level-bar-bg"><div class="level-bar-fill" id="levelBarFill" style="width:0%"></div></div>
+    </div>
+
+    <!-- Nav Tabs -->
+    <div class="nav-tabs">
+      <div class="nav-tab active" data-tab="play">🎮 Jogar</div>
+      <div class="nav-tab" data-tab="ranking">👥 Sala</div>
+      <div class="nav-tab" data-tab="history">📋 Histórico</div>
+    </div>
+
+    <!-- TAB: Play -->
+    <div class="tab-content active" id="tab-play">
+      <div id="phase-color">
+        <p class="section-title">🎲 Sua vez de jogar!</p>
+        <div class="color-grid">
+          <button class="color-btn red" data-cor="red"><span class="color-emoji">🔴</span>Impulsividade</button>
+          <button class="color-btn blue" data-cor="blue"><span class="color-emoji">🔵</span>Pensamento Racional</button>
+          <button class="color-btn yellow" data-cor="yellow"><span class="color-emoji">🟡</span>Emoção</button>
+          <button class="color-btn green" data-cor="green"><span class="color-emoji">🟢</span>Consciência</button>
+        </div>
+
+        <!-- Special Houses -->
+        <div class="special-houses">
+          <p class="special-houses-title">⚡ CASAS ESPECIAIS</p>
+          <div class="special-grid">
+            <button class="special-btn insight" id="btnInsight"><span class="special-emoji">💡</span><span class="special-label">INSIGHT<br>+20 pts</span></button>
+            <button class="special-btn impulse" id="btnImpulse"><span class="special-emoji">⚡</span><span class="special-label">IMPULSO<br>-Combo</span></button>
+            <button class="special-btn reevaluate" id="btnReevaluate"><span class="special-emoji">🔄</span><span class="special-label">REAVALIAÇÃO<br>+1 pergunta</span></button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Question -->
+      <div id="phase-question" class="hidden">
+        <div class="question-card">
+          <div class="question-meta">
+            <span class="question-category" id="qCategory">Categoria</span>
+            <span class="question-num" id="qNum">Q1</span>
+          </div>
+          <p class="question-text" id="qText">Pergunta aqui...</p>
+          <div class="options" id="optionsContainer">
+            <button class="option-btn" data-resp="A"><span class="option-letter">A</span><span id="optA">Opção A</span></button>
+            <button class="option-btn" data-resp="B"><span class="option-letter">B</span><span id="optB">Opção B</span></button>
+          </div>
+        </div>
+
+        <!-- Feedback -->
+        <div class="feedback hidden" id="feedback">
+          <div class="feedback-header" id="fbHeader"><span id="fbIcon">✅</span><span id="fbTitle">Acertou!</span></div>
+          <p class="feedback-text" id="fbText">Explicação</p>
+          <div class="feedback-points" id="fbPoints">+10 pontos</div>
+          <div class="feedback-combo-loss hidden" id="comboLossMsg">⚠️ Combo perdido! Volte 1 casa no tabuleiro.</div>
+        </div>
+        <button class="btn btn-next hidden" id="btnNext">▶️ PRÓXIMA RODADA</button>
+      </div>
+    </div>
+
+    <!-- TAB: Ranking -->
+    <div class="tab-content" id="tab-ranking">
+      <div class="ranking-card">
+        <p class="ranking-title">👥 CLASSIFICAÇÃO DA SALA</p>
+        <ul class="ranking-list" id="roomPlayersList"></ul>
+      </div>
+    </div>
+
+    <!-- TAB: History -->
+    <div class="tab-content" id="tab-history">
+      <div class="ranking-card">
+        <p class="ranking-title">📋 SEU HISTÓRICO</p>
+        <div id="historyContainer">
+          <div class="empty-state"><div class="icon">📝</div><p>Nenhuma resposta ainda.<br>Comece a jogar!</p></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- End Game -->
+    <div id="endSection" class="hidden">
+      <div class="divider"></div>
+      <div class="end-screen">
+        <p class="end-title">🎉 PARTIDA ENCERRADA!</p>
+        <p class="end-subtitle" id="endSubtitle">Resultado final</p>
+        <div id="winnerBadge" class="winner-badge hidden">🏆 VOCÊ VENCEU!</div>
+        
+        <div class="final-ranking">
+          <p class="final-ranking-title">📊 CLASSIFICAÇÃO FINAL</p>
+          <ul class="ranking-list" id="finalRankingList"></ul>
+        </div>
+
+        <button class="btn btn-restart" id="btnNewMatch">🔄 NOVA PARTIDA</button>
+      </div>
+    </div>
+
+    <!-- Fixed Action Buttons -->
+    <div class="action-buttons hidden" id="actionButtons">
+      <button class="btn btn-finish" id="btnFinish">🏁 FINALIZAR</button>
+      <button class="btn btn-leave" id="btnLeave">🚪 SAIR</button>
+    </div>
+
+  </div>
+</div>
+
+<!-- Footer -->
+<footer class="footer">
+  <div class="footer-text">TCC Experience — Jogo Educativo de Terapia Cognitivo-Comportamental</div>
+  <div class="footer-creator">Criado por Luiz Mariano S Filho</div>
+</footer>
+
+<!-- Firebase + App Logic -->
+<script type="module">
+// ===== FIREBASE IMPORTS =====
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getAnalytics } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-analytics.js";
+import { getFirestore, collection, doc, setDoc, updateDoc, onSnapshot, serverTimestamp, getDocs, query, orderBy, limit } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+// ===== FIREBASE CONFIG =====
+const firebaseConfig = {
+  apiKey: "AIzaSyDsEiNt9cJQP18eT_xBTRuI6_QeMqzbALc",
+  authDomain: "tcc-experiencie.firebaseapp.com",
+  projectId: "tcc-experiencie",
+  storageBucket: "tcc-experiencie.firebasestorage.app",
+  messagingSenderId: "368040879283",
+  appId: "1:368040879283:web:cc8079fc5d4c8fcdf1fcc6",
+  measurementId: "G-QY4YB4591T"
+};
+
+const app = initializeApp(firebaseConfig);
+const analytics = getAnalytics(app);
+const db = getFirestore(app);
+
+// ===== QUESTION BANK =====
+const ALL_QUESTIONS = [
+  {pergunta:"Responder imediatamente com raiva em uma discussão é:",opcaoA:"Impulsividade",opcaoB:"Controle emocional",correta:"A",explicacao:"Agir sem reflexão caracteriza resposta impulsiva.",categoria:"red"},
+  {pergunta:"Agir sem considerar consequências futuras é:",opcaoA:"Impulsividade",opcaoB:"Planejamento",correta:"A",explicacao:"Falta de previsão caracteriza comportamento impulsivo.",categoria:"red"},
+  {pergunta:"Explodir emocionalmente em uma discussão é:",opcaoA:"Impulsividade",opcaoB:"Consciência",correta:"A",explicacao:"Reação intensa sem controle indica impulsividade.",categoria:"red"},
+  {pergunta:"Reagir impulsivamente pode trazer alívio imediato?",opcaoA:"Sim",opcaoB:"Não",correta:"A",explicacao:"Pode aliviar no curto prazo, mas gerar prejuízo depois.",categoria:"red"},
+  {pergunta:"Sentir emoção intensa e agir automaticamente é:",opcaoA:"Impulsividade",opcaoB:"Consciência",correta:"A",explicacao:"Falta de pausa leva a respostas impulsivas.",categoria:"red"},
+  {pergunta:"Pensar antes de agir reduz:",opcaoA:"Impulsividade",opcaoB:"Consciência",correta:"A",explicacao:"A pausa reduz reatividade automática.",categoria:"red"},
+  {pergunta:"Reagir sem consciência tende a:",opcaoA:"Automatismo",opcaoB:"Controle",correta:"A",explicacao:"Sem percepção, a resposta é automática.",categoria:"red"},
+  {pergunta:"Agir por impulso geralmente resulta em:",opcaoA:"Consequências negativas",opcaoB:"Resultados positivos",correta:"A",explicacao:"Decisões impulsivas raramente consideram todos os fatores.",categoria:"red"},
+  {pergunta:"Contar até 10 antes de responder ajuda a:",opcaoA:"Reduzir impulsividade",opcaoB:"Aumentar ansiedade",correta:"A",explicacao:"A pausa estratégica ativa o córtex pré-frontal.",categoria:"red"},
+  {pergunta:"Falar sem pensar pode ser considerado:",opcaoA:"Impulsividade verbal",opcaoB:"Honestidade",correta:"A",explicacao:"Falta de filtro indica resposta impulsiva.",categoria:"red"},
+  {pergunta:"Tomar decisões sob forte emoção é:",opcaoA:"Arriscado",opcaoB:"Sempre eficaz",correta:"B",explicacao:"Decisões sob emoção podem ser válidas dependendo do contexto.",categoria:"red"},
+  {pergunta:"Interromper alguém constantemente demonstra:",opcaoA:"Falta de educação",opcaoB:"Entusiasmo genuíno",correta:"B",explicacao:"Às vezes interromper indica participação ativa, não impulsividade.",categoria:"red"},
+  {pergunta:"Comprar por impulso geralmente visa:",opcaoA:"Fuga emocional",opcaoB:"Necessidade real",correta:"B",explicacao:"Nem toda compra espontânea é impulsiva; pode atender necessidade.",categoria:"red"},
+  {pergunta:"Dirigir com raiva é um exemplo de:",opcaoA:"Impulsividade perigosa",opcaoB:"Assertividade",correta:"A",explicacao:"Raiva ao volante compromete decisões seguras.",categoria:"red"},
+  {pergunta:"Respirar fundo antes de responder ajuda a:",opcaoA:"Reduzir reatividade",opcaoB:"Aumentar ansiedade",correta:"A",explicacao:"A respiração profunda ativa o sistema parassimpático.",categoria:"red"},
+  {pergunta:"Responder uma mensagem irritada imediatamente é:",opcaoA:"Impulsivo",opcaoB:"Assertivo",correta:"B",explicacao:"Pode ser comunicação direta, depende do contexto.",categoria:"red"},
+  {pergunta:"O arrependimento rápido após uma ação sugere:",opcaoA:"Decisão impulsiva",opcaoB:"Decisão refletida",correta:"B",explicacao:"Arrependimento pode indicar reflexão pós-ação.",categoria:"red"},
+  {pergunta:"Evitar decisões quando está muito emocionado é:",opcaoA:"Estratégia inteligente",opcaoB:"Fuga do problema",correta:"A",explicacao:"Adiar decisões sob emoção intensa é autorregulação.",categoria:"red"},
+  {pergunta:"Gritar em público por frustração é:",opcaoA:"Impulsividade emocional",opcaoB:"Expressão saudável",correta:"B",explicacao:"Expressar frustração pode ser catártico e saudável.",categoria:"red"},
+  {pergunta:"Ter paciência antes de reagir demonstra:",opcaoA:"Controle cognitivo",opcaoB:"Fragilidade",correta:"A",explicacao:"Paciência é sinal de maturidade emocional.",categoria:"red"},
+  {pergunta:"\"Eu sempre estrago tudo\" é um exemplo de:",opcaoA:"Generalização",opcaoB:"Observação neutra",correta:"A",explicacao:"Uso de termos absolutos como 'sempre' indica distorção.",categoria:"blue"},
+  {pergunta:"\"Se algo der errado, será um desastre total\" é:",opcaoA:"Catastrofização",opcaoB:"Planejamento",correta:"A",explicacao:"Exagerar consequências negativas caracteriza catastrofização.",categoria:"blue"},
+  {pergunta:"Pensamentos automáticos são:",opcaoA:"Rápidos e involuntários",opcaoB:"Sempre conscientes",correta:"A",explicacao:"Eles surgem automaticamente sem esforço deliberado.",categoria:"blue"},
+  {pergunta:"\"Se falhei hoje, sempre falharei\" representa:",opcaoA:"Generalização",opcaoB:"Previsão baseada em dados",correta:"A",explicacao:"Generalizar um evento isolado é erro cognitivo.",categoria:"blue"},
+  {pergunta:"Pensar \"vai dar tudo errado\" é:",opcaoA:"Catastrofização",opcaoB:"Planejamento estratégico",correta:"A",explicacao:"Antecipar o pior cenário sem base é distorção.",categoria:"blue"},
+  {pergunta:"Pensamentos sem evidência concreta são:",opcaoA:"Distorções cognitivas",opcaoB:"Fatos",correta:"A",explicacao:"Falta de evidência indica erro de interpretação.",categoria:"blue"},
+  {pergunta:"Pensar \"se não for perfeito, é um fracasso\" é:",opcaoA:"Pensamento tudo-ou-nada",opcaoB:"Análise realista",correta:"A",explicacao:"Avaliações extremas ignoram nuances.",categoria:"blue"},
+  {pergunta:"Ignorar aspectos positivos e focar só no negativo é:",opcaoA:"Filtro mental",opcaoB:"Realismo",correta:"A",explicacao:"O filtro mental distorce a percepção da realidade.",categoria:"blue"},
+  {pergunta:"Dizer \"devo ser perfeito sempre\" é:",opcaoA:"Regra rígida",opcaoB:"Flexibilidade cognitiva",correta:"A",explicacao:"Regras absolutas geram sofrimento.",categoria:"blue"},
+  {pergunta:"Prever o pior sem evidência é:",opcaoA:"Catastrofização",opcaoB:"Planejamento",correta:"A",explicacao:"Antecipar desastre sem base é distorção.",categoria:"blue"},
+  {pergunta:"Rotular-se como \"inútil\" após erro é:",opcaoA:"Rotulação",opcaoB:"Autoavaliação honesta",correta:"B",explicacao:"Autoavaliação pode ser válida se baseada em fatos concretos.",categoria:"blue"},
+  {pergunta:"Pensar \"isso sempre acontece comigo\" é:",opcaoA:"Generalização",opcaoB:"Padrão identificável",correta:"B",explicacao:"Pode ser um padrão real que merece atenção.",categoria:"blue"},
+  {pergunta:"Pensar \"todos vão me julgar\" é:",opcaoA:"Distorção",opcaoB:"Fato social",correta:"B",explicacao:"Em contextos sociais, a avaliação alheia é realidade.",categoria:"blue"},
+  {pergunta:"A emoção surge independente dos pensamentos?",opcaoA:"Sim",opcaoB:"Não",correta:"B",explicacao:"Na TCC, pensamentos influenciam emoções.",categoria:"blue"},
+  {pergunta:"Pensamentos automáticos podem ser questionados?",opcaoA:"Sim",opcaoB:"Não",correta:"A",explicacao:"Eles podem ser identificados e reavaliados.",categoria:"blue"},
+  {pergunta:"Pensar de forma equilibrada reduz:",opcaoA:"Sofrimento emocional",opcaoB:"Capacidade cognitiva",correta:"A",explicacao:"Interpretações mais realistas diminuem sofrimento.",categoria:"blue"},
+  {pergunta:"Mudança cognitiva envolve:",opcaoA:"Reavaliar pensamentos",opcaoB:"Evitar pensar",correta:"A",explicacao:"A TCC trabalha com modificação de pensamentos.",categoria:"blue"},
+  {pergunta:"Pensar \"isso é impossível\" sem tentar é:",opcaoA:"Distorção",opcaoB:"Prudência",correta:"B",explicacao:"Às vezes reconhecer limites é realista, não distorção.",categoria:"blue"},
+  {pergunta:"Pensar \"eu nunca consigo nada\" é:",opcaoA:"Generalização",opcaoB:"Fato",correta:"A",explicacao:"Uso de absolutos indica distorção.",categoria:"blue"},
+  {pergunta:"Pensamento flexível significa:",opcaoA:"Considerar alternativas",opcaoB:"Manter uma visão",correta:"A",explicacao:"Flexibilidade reduz distorções cognitivas.",categoria:"blue"},
+  {pergunta:"Sentir ansiedade antes de uma apresentação é:",opcaoA:"Resposta emocional normal",opcaoB:"Sinal de incapacidade",correta:"A",explicacao:"A ansiedade pode ser adaptativa.",categoria:"yellow"},
+  {pergunta:"Evitar responder para não piorar a situação pode ser:",opcaoA:"Regulação emocional",opcaoB:"Fraqueza",correta:"A",explicacao:"Adiar resposta pode ser estratégia de controle.",categoria:"yellow"},
+  {pergunta:"Sentir medo antes de uma prova pode ser:",opcaoA:"Emoção adaptativa",opcaoB:"Erro psicológico",correta:"A",explicacao:"O medo pode preparar o organismo para desafios.",categoria:"yellow"},
+  {pergunta:"Sentir ansiedade e ainda agir é:",opcaoA:"Regulação emocional",opcaoB:"Evitação",correta:"A",explicacao:"Agir apesar da emoção é habilidade de regulação.",categoria:"yellow"},
+  {pergunta:"Evitar situações que causam ansiedade SEMPRE ajuda?",opcaoA:"Sim",opcaoB:"Não",correta:"B",explicacao:"Evitação pode manter a ansiedade a longo prazo.",categoria:"yellow"},
+  {pergunta:"Todo pensamento negativo é falso?",opcaoA:"Sim",opcaoB:"Não",correta:"B",explicacao:"Nem todo pensamento negativo é distorcido.",categoria:"yellow"},
+  {pergunta:"Controlar emoções significa eliminá-las?",opcaoA:"Sim",opcaoB:"Não",correta:"B",explicacao:"Controle emocional envolve lidar, não eliminar.",categoria:"yellow"},
+  {pergunta:"Acreditar que sabe o que os outros pensam é:",opcaoA:"Leitura mental",opcaoB:"Empatia",correta:"A",explicacao:"Inferir pensamentos sem prova é distorção.",categoria:"yellow"},
+  {pergunta:"Agir apesar do medo demonstra:",opcaoA:"Regulação emocional",opcaoB:"Evitação",correta:"A",explicacao:"Enfrentar situações é parte do controle.",categoria:"yellow"},
+  {pergunta:"Pensar \"posso lidar com isso\" é:",opcaoA:"Autoeficácia",opcaoB:"Negação",correta:"A",explicacao:"A crença na capacidade melhora o enfrentamento.",categoria:"yellow"},
+  {pergunta:"Pensar \"isso é difícil, mas posso tentar\" é:",opcaoA:"Pensamento adaptativo",opcaoB:"Catastrofização",correta:"B",explicacao:"Pode ser subestimação da dificuldade real.",categoria:"yellow"},
+  {pergunta:"Pensar \"posso tentar melhorar\" é:",opcaoA:"Mentalidade adaptativa",opcaoB:"Autocobrança",correta:"B",explicacao:"Foco excessivo em melhorar pode gerar ansiedade.",categoria:"yellow"},
+  {pergunta:"Ignorar emoções ajuda no controle emocional?",opcaoA:"Sim",opcaoB:"Não",correta:"B",explicacao:"Reconhecer emoções é necessário para regulá-las.",categoria:"yellow"},
+  {pergunta:"Explodir emocionalmente tende a:",opcaoA:"Gerar consequências negativas",opcaoB:"Resolver conflitos",correta:"A",explicacao:"Reações impulsivas costumam piorar situações.",categoria:"yellow"},
+  {pergunta:"Evitar completamente situações difíceis tende a:",opcaoA:"Manter o problema",opcaoB:"Resolver o problema",correta:"B",explicacao:"Evitar pode ser estratégia válida de autocuidado.",categoria:"yellow"},
+  {pergunta:"Reagir de forma calma em conflito é:",opcaoA:"Regulação emocional",opcaoB:"Passividade",correta:"A",explicacao:"Controle não significa ausência de posicionamento.",categoria:"yellow"},
+  {pergunta:"Evitar desafios reduz ansiedade a longo prazo?",opcaoA:"Sim",opcaoB:"Não",correta:"B",explicacao:"Evitação mantém o ciclo de ansiedade.",categoria:"yellow"},
+  {pergunta:"Sentir tristeza após uma perda é:",opcaoA:"Emoção natural",opcaoB:"Sinal de fraqueza",correta:"A",explicacao:"A tristeza é uma resposta esperada.",categoria:"yellow"},
+  {pergunta:"Suprimir emoções constantemente pode causar:",opcaoA:"Problemas de saúde mental",opcaoB:"Maior bem-estar",correta:"A",explicacao:"Emoções reprimidas podem gerar sintomas.",categoria:"yellow"},
+  {pergunta:"Nomear uma emoção ajuda a:",opcaoA:"Reduzir sua intensidade",opcaoB:"Aumentar sua intensidade",correta:"A",explicacao:"Identificar emoções é o primeiro passo para regulá-las.",categoria:"yellow"},
+  {pergunta:"Perceber que estou nervoso antes de agir é:",opcaoA:"Consciência emocional",opcaoB:"Impulsividade",correta:"A",explicacao:"Reconhecer o próprio estado interno é autoconsciência.",categoria:"green"},
+  {pergunta:"Identificar um pensamento distorcido é:",opcaoA:"Consciência cognitiva",opcaoB:"Reação emocional",correta:"A",explicacao:"Perceber padrões de pensamento é metacognição.",categoria:"green"},
+  {pergunta:"Perceber uma emoção antes de agir permite:",opcaoA:"Maior controle",opcaoB:"Reação automática",correta:"A",explicacao:"A consciência antecede a regulação.",categoria:"green"},
+  {pergunta:"Pensamentos influenciam emoções?",opcaoA:"Sim",opcaoB:"Não",correta:"A",explicacao:"Esse é um princípio central da TCC.",categoria:"green"},
+  {pergunta:"Consciência vem antes do controle?",opcaoA:"Sim",opcaoB:"Não",correta:"A",explicacao:"É preciso perceber para conseguir regular.",categoria:"green"},
+  {pergunta:"Interpretar um evento de forma equilibrada é:",opcaoA:"Reestruturação cognitiva",opcaoB:"Negação",correta:"A",explicacao:"Buscar equilíbrio é objetivo da TCC.",categoria:"green"},
+  {pergunta:"Observar seus próprios pensamentos é:",opcaoA:"Metacognição",opcaoB:"Impulsividade",correta:"A",explicacao:"Refletir sobre o pensamento é metacognição.",categoria:"green"},
+  {pergunta:"Observar pensamentos sem julgá-los é:",opcaoA:"Consciência",opcaoB:"Evitação",correta:"A",explicacao:"Observar sem reagir aumenta controle cognitivo.",categoria:"green"},
+  {pergunta:"A consciência permite:",opcaoA:"Escolha de resposta",opcaoB:"Reação automática",correta:"A",explicacao:"Perceber possibilita agir de forma controlada.",categoria:"green"},
+  {pergunta:"Parar e respirar antes de responder é:",opcaoA:"Regulação emocional",opcaoB:"Impulsividade",correta:"A",explicacao:"Pausar ajuda a diminuir reatividade.",categoria:"green"},
+  {pergunta:"Perguntar \"quais são as evidências?\" é:",opcaoA:"Estratégia cognitiva",opcaoB:"Paralisia por análise",correta:"B",explicacao:"Buscar evidências excessivamente pode paralisar a ação.",categoria:"green"},
+  {pergunta:"Reavaliar um pensamento negativo é:",opcaoA:"Reestruturação",opcaoB:"Supressão",correta:"B",explicacao:"Reavaliar excessivamente pode suprimir emoções.",categoria:"green"},
+  {pergunta:"Pensar antes de agir reduz:",opcaoA:"Impulsividade",opcaoB:"Consciência",correta:"B",explicacao:"Pensar demais pode reduzir ação consciente.",categoria:"green"},
+  {pergunta:"Reavaliar pensamentos ajuda a:",opcaoA:"Regular emoções",opcaoB:"Ignorar emoções",correta:"A",explicacao:"Cognição e emoção estão conectadas.",categoria:"green"},
+  {pergunta:"Questionar pensamentos melhora:",opcaoA:"Tomada de decisão",opcaoB:"Impulsividade",correta:"A",explicacao:"Pensamento crítico melhora decisões.",categoria:"green"},
+  {pergunta:"A TCC foca na relação entre:",opcaoA:"Pensamento, emoção e comportamento",opcaoB:"Apenas comportamento",correta:"A",explicacao:"Esse é o modelo central da TCC.",categoria:"green"},
+  {pergunta:"Questionar um pensamento negativo é:",opcaoA:"Reestruturação cognitiva",opcaoB:"Negação da realidade",correta:"A",explicacao:"Reavaliar pensamentos é central na TCC.",categoria:"green"},
+  {pergunta:"Interpretar uma crítica como ataque pessoal é:",opcaoA:"Distorção cognitiva",opcaoB:"Percepção válida",correta:"B",explicacao:"Críticas podem conter elementos válidos de feedback.",categoria:"green"},
+  {pergunta:"Assumir culpa por algo fora do seu controle é:",opcaoA:"Personalização",opcaoB:"Responsabilidade",correta:"B",explicacao:"Assumir responsabilidade pode ser sinal de maturidade.",categoria:"green"},
+  {pergunta:"\"Se ele não respondeu, fiz algo errado\" é:",opcaoA:"Personalização",opcaoB:"Inferência lógica",correta:"B",explicacao:"Pode ser inferência baseada em padrões anteriores.",categoria:"green"}
+];
+
+// ===== GAME STATE =====
+const state = {
+  playerName: '', playerId: '', roomId: '', isHost: false,
+  score: 0, combo: 0, maxCombo: 0,
+  totalQuestions: 0, correctAnswers: 0, history: [],
+  usedQuestions: [], currentQuestion: null, currentColor: null,
+  gameActive: false, finished: false, left: false,
+  matchStartTime: null, timerRemaining: 600,
+  roomUnsub: null, playerUnsub: null, timerInterval: null,
+  playerOrder: [], currentTurnIndex: 0, specialUsedThisRound: false
+};
+
+// Variável global para usuário logado (FORA do state)
+let currentUser = null;
+// ===== CATEGORY CONFIG =====
+const CATEGORY_MAP = { red: 'Impulsividade', blue: 'Pensamento Racional', yellow: 'Emoção', green: 'Consciência' };
+const CATEGORY_CLASS = { red: 'cat-red', blue: 'cat-blue', yellow: 'cat-yellow', green: 'cat-green' };
+const BONUS_MAP = { red: 5, blue: 10, yellow: 5, green: 15 };
+const LEVELS = [
+  { name: 'INICIANTE', xp: 0 }, { name: 'APRENDIZ', xp: 50 }, { name: 'EXPLORADOR', xp: 150 },
+  { name: 'PENSADOR', xp: 300 }, { name: 'ESTRATEGISTA', xp: 500 }, { name: 'MESTRE TCC', xp: 800 },
+  { name: 'LENDA', xp: 1200 }, { name: 'TRANSCENDENTE', xp: 1800 }
+];
+
+// ===== UTILS =====
+function generateRoomCode() {
+  return Math.random().toString(36).substring(2, 8).toUpperCase();
+}
+
+function formatTime(seconds) {
+  const m = Math.floor(seconds / 60).toString().padStart(2, '0');
+  const s = (seconds % 60).toString().padStart(2, '0');
+  return `${m}:${s}`;
+}
+
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+function switchTab(tabName) {
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  event.currentTarget.classList.add('active');
+  document.getElementById('tab-' + tabName).classList.add('active');
+  if (tabName === 'ranking') updateRoomPlayersList();
+  if (tabName === 'history') updateHistory();
+}
+
+// ===== NOTIFICATIONS =====
+function showNotification(title, text) {
+  const container = document.getElementById('notificationsContainer');
+  const notif = document.createElement('div');
+  notif.className = 'notification';
+  notif.innerHTML = `
+    <div class="notification-header">🔔 ${title}</div>
+    <div class="notification-text">${text}</div>
+  `;
+  container.appendChild(notif);
+  setTimeout(() => notif.remove(), 5000);
+}
+
+// ===== FIREBASE: GLOBAL RANKING =====
+function initGlobalRankingHome() {
+  const list = document.getElementById("global-ranking-list-home");
+  const wrap = document.getElementById("global-ranking-wrap-home");
+  
+  if (!list || !wrap) {
+    console.error("Elementos do ranking home não encontrados!");
+    return;
+  }
+  
+  const q = query(collection(db, "tcc_players"), orderBy("wins", "desc"), limit(3));
+  
+  onSnapshot(q, (snapshot) => {
+    const players = [];
+    snapshot.forEach(docSnap => {
+      const data = docSnap.data();
+      if (data.wins > 0) players.push({ id: docSnap.id, ...data });
+    });
+    
+    if (players.length === 0) { 
+      wrap.style.display = "none"; 
+      return; 
+    }
+    wrap.style.display = "block";
+    
+    list.innerHTML = players.map((p, i) => {
+      const t = getTitleByWins(p.wins);
+      const posClass = i === 0 ? 'gold' : i === 1 ? 'silver' : 'bronze';
+      const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : '🥉';
+      return `<li class="global-ranking-item top${i+1}">
+        <span class="gr-pos ${posClass}">${medal}</span>
+        <span class="gr-name">${p.name}</span>
+        <span class="gr-wins">${p.wins} vitórias</span>
+        <span class="gr-title ${t.cls}">${t.text}</span>
+      </li>`;
+    }).join("");
+  });
+}
+
+function getTitleByWins(wins) {
+  if (wins >= 11) return { text: "👑 Deus do TCC", cls: "deus" };
+  if (wins >= 6)  return { text: "⚡ Mestre do Jogo", cls: "mestre" };
+  if (wins >= 3)  return { text: "📘 Aprendiz", cls: "aprendiz" };
+  return { text: "🌱 Iniciante", cls: "iniciante" };
+}
+
+// ===== LOGIN & HOME =====
+function login() {
+  const name = document.getElementById('loginName').value.trim();
+  if (!name) {
+    const inp = document.getElementById('loginName');
+    inp.style.borderColor = 'var(--neon-red)';
+    inp.style.animation = 'shake .4s ease';
+    setTimeout(() => { inp.style.animation = ''; }, 400);
+    return;
+  }
+  
+  currentUser = name;
+  localStorage.setItem('tcc_currentUser', name);
+  showHomeScreen();
+}
+
+function showHomeScreen() {
+  document.getElementById('welcomeMessage').textContent = `Bem-vindo de volta, ${currentUser}!`;
+  showScreen('screen-home');
+  initGlobalRankingHome();
+}
+  
+function logout() {
+  if(confirm("Deseja sair e voltar para o login?")) {
+    currentUser = null;
+    localStorage.removeItem('tcc_currentUser');
+    cleanup();
+    showScreen('screen-login');
+    document.getElementById('loginName').value = '';
+  }
+}
+  
+function createRoom() {
+  if (!currentUser) {
+    showScreen('screen-login');
+    return;
+  }
+  const roomCode = generateRoomCode();
+  joinRoom(roomCode, true);
+}
+
+function joinRoomInput() {
+  if (!currentUser) {
+    showScreen('screen-login');
+    return;
+  }
+  const code = prompt('Digite o código da sala:');
+  if (code) joinRoom(code.toUpperCase(), false);
+}
+
+async function joinRoom(roomCode, isHost) {
+  state.roomId = roomCode;
+  state.isHost = isHost;
+  state.playerId = `${roomCode}_${Date.now()}_${Math.random().toString(36).substr(2,5)}`;
+  
+  const roomRef = doc(db, "rooms", roomCode);
+  const playerRef = doc(roomRef, "players", state.playerId);
+  
+  // Check if room exists and is active
+  const roomSnap = await getDocs(query(collection(db, "rooms"), orderBy("createdAt", "desc"), limit(1)));
+  const existingRoom = roomSnap.docs.find(d => d.id === roomCode)?.data();
+  
+  if (existingRoom && existingRoom.status === 'playing') {
+    alert('❌ Esta sala já está em jogo! Crie ou entre em outra sala.');
+    return;
+  }
+  
+  await setDoc(roomRef, {
+    code: roomCode, status: 'lobby', createdAt: serverTimestamp(),
+    startTime: null, endTime: null, hostId: isHost ? state.playerId : null,
+    maxPlayers: 10, playerOrder: []
+  }, { merge: true });
+  
+  await setDoc(playerRef, {
+    name: state.playerName, score: 0, finished: false, left: false,
+    joinedAt: serverTimestamp(), isHost: isHost, order: 0
+  });
+  
+  // Update host if first
+  const snap = await getDocs(collection(roomRef, "players"));
+  if (snap.size === 1) {
+    await updateDoc(roomRef, { hostId: state.playerId });
+    await updateDoc(playerRef, { isHost: true });
+    state.isHost = true;
+  }
+  
+  // Listen to room
+  if (state.roomUnsub) state.roomUnsub();
+  state.roomUnsub = onSnapshot(roomRef, (roomSnap) => {
+    const roomData = roomSnap.data();
+    if (!roomData) return;
+    
+    if (roomData.status === 'playing' && !state.gameActive) {
+      startGameInRoom(roomData);
+    }
+    if (roomData.status === 'ended') {
+      showMatchResults(roomRef);
+    }
+    if (roomData.status === 'lobby') {
+      updateLobbyPlayers(roomRef);
+    }
+  });
+  
+  showScreen('screen-lobby');
+  document.getElementById('lobbyRoomCode').textContent = roomCode;
+}
+
+function updateLobbyPlayers(roomRef) {
+  const list = document.getElementById('playersList');
+  const countEl = document.getElementById('playerCount');
+  
+  onSnapshot(collection(roomRef, "players"), (snap) => {
+    const players = [];
+    snap.forEach(p => { const d = p.data(); if (!d.left) players.push({ id: p.id, ...d }); });
+    countEl.textContent = players.length;
+    
+    if (players.length === 0) {
+      list.innerHTML = '<li style="color:var(--text2)">Nenhum jogador...</li>';
+      return;
+    }
+    
+    list.innerHTML = players.map(p => `
+      <li><span class="player-status waiting"></span>
+        <span class="player-name">${p.name} ${p.isHost ? '👑' : ''}</span></li>`).join('');
+    
+    const btn = document.getElementById('btnStartAsHost');
+    if (state.isHost && players.length >= 2) btn.classList.remove('hidden');
+    else btn.classList.add('hidden');
+  });
+}
+
+async function startGameAsHost() {
+  const roomRef = doc(db, "rooms", state.roomId);
+  const playersSnap = await getDocs(collection(roomRef, "players"));
+  const players = [];
+  playersSnap.forEach(p => players.push(p.id));
+  
+  // Shuffle player order
+  const shuffled = players.sort(() => Math.random() - 0.5);
+  
+  const now = Date.now();
+  await updateDoc(roomRef, {
+    status: 'playing',
+    startTime: serverTimestamp(),
+    endTime: new Date(now + 600000),
+    playerOrder: shuffled,
+    currentTurnIndex: 0,
+    lastTurnChange: serverTimestamp()
+  });
+  
+  state.gameActive = true;
+  state.matchStartTime = now;
+  state.timerRemaining = 600;
+  state.playerOrder = shuffled;
+  state.currentTurnIndex = 0;
+  
+  console.log("Jogo iniciado!");
+  console.log("Ordem dos jogadores:", shuffled);
+  console.log("Primeiro jogador:", shuffled[0]);
+  
+  showScreen('screen-game');
+  document.getElementById('timerDisplay').classList.remove('hidden');
+  document.getElementById('actionButtons').classList.remove('hidden');
+  startTimer();
+  updateHUD();
+  updateTurnIndicator();
+  resetPhase();
+}
+
+function startGameInRoom(roomData) {
+  if (state.gameActive) return;
+  
+  console.log("Iniciando jogo para:", state.playerName);
+  console.log("Player order:", roomData.playerOrder);
+  console.log("Current turn:", roomData.currentTurnIndex);
+  
+  state.gameActive = true;
+  state.matchStartTime = roomData.startTime ? roomData.startTime.toDate().getTime() : Date.now();
+  state.timerRemaining = 600;
+  state.playerOrder = roomData.playerOrder || [];
+  state.currentTurnIndex = roomData.currentTurnIndex || 0;
+  
+  // Listener para mudanças de turno
+  const roomRef = doc(db, "rooms", state.roomId);
+  onSnapshot(roomRef, (roomSnap) => {
+    const roomData = roomSnap.data();
+    if (!roomData || !state.gameActive) return;
+    
+    // Atualiza índice do turno quando mudar
+    if (roomData.currentTurnIndex !== undefined && roomData.currentTurnIndex !== state.currentTurnIndex) {
+      state.currentTurnIndex = roomData.currentTurnIndex;
+      updateTurnIndicator();
+      resetPhase();
+    }
+    
+    // Verifica se jogo terminou
+    if (roomData.status === 'ended') {
+      showMatchResults(roomRef);
+    }
+  });
+  
+  showScreen('screen-game');
+  document.getElementById('timerDisplay').classList.remove('hidden');
+  document.getElementById('actionButtons').classList.remove('hidden');
+  startTimer();
+  updateHUD();
+  updateTurnIndicator();
+  resetPhase();
+}
+
+function startTimer() {
+  if (state.timerInterval) clearInterval(state.timerInterval);
+  
+  // Timer sincronizado baseado no startTime do servidor
+  state.timerInterval = setInterval(() => {
+    if (!state.gameActive) {
+      clearInterval(state.timerInterval);
+      return;
+    }
+    
+    const now = Date.now();
+    const elapsed = Math.floor((now - state.matchStartTime) / 1000);
+    state.timerRemaining = Math.max(0, 600 - elapsed);
+    
+    const el = document.getElementById('timerDisplay');
+    el.textContent = formatTime(state.timerRemaining);
+    document.getElementById('timerFill').style.width = (state.timerRemaining / 600 * 100) + '%';
+    
+    if (state.timerRemaining <= 60) el.classList.add('warning');
+    else el.classList.remove('warning');
+    
+    if (state.timerRemaining <= 0) {
+      clearInterval(state.timerInterval);
+      endMatch(doc(db, "rooms", state.roomId));
+    }
+  }, 1000);
+}
+
+function updateTurnIndicator() {
+  const indicator = document.getElementById('turnIndicator');
+  const text = document.getElementById('turnText');
+  
+  if (!state.playerOrder || state.playerOrder.length === 0) {
+    console.log("Player order vazio!");
+    return;
+  }
+  
+  const currentPlayerId = state.playerOrder[state.currentTurnIndex];
+  const isMyTurn = currentPlayerId === state.playerId;
+  
+  console.log("Turno atual:", state.currentTurnIndex);
+  console.log("Jogador da vez:", currentPlayerId);
+  console.log("Meu ID:", state.playerId);
+  console.log("É minha vez?", isMyTurn);
+  
+  indicator.classList.remove('hidden');
+  
+  if (isMyTurn) {
+    indicator.classList.add('my-turn');
+    text.classList.add('my-turn');
+    text.textContent = '🎮 SUA VEZ DE JOGAR!';
+    enableButtons(true);
+  } else {
+    indicator.classList.remove('my-turn');
+    text.classList.remove('my-turn');
+    // Tenta encontrar o nome do jogador
+    const playerIndex = state.currentTurnIndex + 1;
+    text.textContent = `⏳ Vez do jogador ${playerIndex}`;
+    enableButtons(false);
+  }
+}
+
+function enableButtons(enable) {
+  document.querySelectorAll('.color-btn').forEach(btn => btn.disabled = !enable);
+  document.querySelectorAll('.special-btn').forEach(btn => btn.disabled = !enable || state.specialUsedThisRound);
+}
+
+// ===== GAME LOGIC =====
+function updateHUD() {
+  document.getElementById('hudName').textContent = state.playerName;
+  document.getElementById('hudScore').textContent = state.score + ' pts';
+  const comboEl = document.getElementById('hudCombo');
+  comboEl.innerHTML = `<span class="fire">🔥</span> Combo: ${state.combo}`;
+  comboEl.classList.toggle('combo-high', state.combo >= 3);
+  const maxPossible = ALL_QUESTIONS.length * 50;
+  document.getElementById('energyBar').style.width = Math.min((state.score / maxPossible) * 100, 100) + '%';
+}
+
+function updateLevel() {
+  let level = 0;
+  for (let i = LEVELS.length - 1; i >= 0; i--) { if (state.score >= LEVELS[i].xp) { level = i; break; } }
+  const current = LEVELS[level], next = LEVELS[Math.min(level + 1, LEVELS.length - 1)];
+  const progress = next.xp > current.xp ? ((state.score - current.xp) / (next.xp - current.xp)) * 100 : 100;
+  document.getElementById('levelLabel').textContent = `NÍVEL ${level + 1} — ${current.name}`;
+  document.getElementById('levelXP').textContent = `${state.score} / ${next.xp} XP`;
+  document.getElementById('levelBarFill').style.width = Math.min(progress, 100) + '%';
+}
+
+function updateRoomPlayersList() {
+  const list = document.getElementById('roomPlayersList');
+  const roomRef = doc(db, "rooms", state.roomId);
+  
+  onSnapshot(collection(roomRef, "players"), (snap) => {
+    const players = [];
+    snap.forEach(p => { const d = p.data(); if (!d.left) players.push({ id: p.id, ...d }); });
+    players.sort((a, b) => b.score - a.score);
+    
+    if (players.length === 0) { list.innerHTML = '<li style="color:var(--text2)">Aguardando...</li>'; return; }
+    
+    list.innerHTML = players.map((p, i) => {
+      const isCurrent = p.id === state.playerId;
+      const posClass = i === 0 ? 'gold' : i === 1 ? 'silver' : i === 2 ? 'bronze' : '';
+      const medals = ['🥇', '🥈', '🥉'];
+      return `<li class="ranking-item ${isCurrent ? 'current' : ''}">
+        <span class="rk-pos ${posClass}">${i < 3 ? medals[i] : (i + 1)}</span>
+        <span class="rk-name">${p.name} ${isCurrent ? '<span class="rk-current-tag">VOCÊ</span>' : ''} ${p.finished ? '✅' : ''}</span>
+        <span class="rk-score">${p.score} pts</span></li>`;
+    }).join('');
+  });
+}
+
+function updateHistory() {
+  const container = document.getElementById('historyContainer');
+  if (state.history.length === 0) {
+    container.innerHTML = '<div class="empty-state"><div class="icon">📝</div><p>Nenhuma resposta ainda.<br>Comece a jogar!</p></div>';
+    return;
+  }
+  container.innerHTML = state.history.map(h => `
+    <div class="history-item"><span class="history-icon">${h.correct ? '✅' : '❌'}</span>
+    <span class="history-text">${h.question}</span>
+    <span class="history-points ${h.correct ? 'pos' : 'neg'}">${h.correct ? '+' + h.points : '0'}</span></div>`).join('');
+}
+
+// ===== SPECIAL HOUSES =====
+async function useSpecialHouse(type) {
+  if (!state.gameActive || state.finished || state.specialUsedThisRound) return;
+  state.specialUsedThisRound = true;
+  
+  // Notify others
+  const roomRef = doc(db, "rooms", state.roomId);
+  await updateDoc(roomRef, {
+    [`lastSpecial_${state.playerId}`]: { type, playerName: state.playerName, timestamp: serverTimestamp() }
+  });
+  
+  if (type === 'insight') {
+    state.score += 20;
+    showFloatingScore('+20', true);
+    updateHUD(); updateLevel();
+    await updatePlayerScore();
+    
+    const fb = document.getElementById('feedback');
+    fb.classList.remove('hidden', 'correct', 'wrong');
+    fb.classList.add('correct', 'feedback-special');
+    document.getElementById('fbIcon').textContent = '💡';
+    document.getElementById('fbTitle').textContent = 'Insight!';
+    document.getElementById('fbText').textContent = 'Você teve um momento de clareza cognitiva! +20 pontos.';
+    document.getElementById('fbPoints').textContent = '+20 pontos (bônus especial)';
+    document.getElementById('fbPoints').className = 'feedback-points';
+    document.getElementById('comboLossMsg').classList.add('hidden');
+    document.getElementById('btnNext').classList.remove('hidden');
+    
+    state.history.unshift({ question: '💡 Casa Especial: INSIGHT', correct: true, points: 20, category: 'Especial' });
+  } else if (type === 'impulse') {
+    if (state.combo > 0) {
+      showComboBreak();
+      document.getElementById('comboLossMsg').textContent = '⚡ IMPULSO! Combo perdido + volte 1 casa no tabuleiro.';
+      document.getElementById('comboLossMsg').classList.remove('hidden');
+    }
+    state.combo = 0;
+    showFloatingScore('0', false);
+    
+    const fb = document.getElementById('feedback');
+    fb.classList.remove('hidden', 'correct', 'wrong');
+    fb.classList.add('wrong');
+    document.getElementById('fbIcon').textContent = '⚡';
+    document.getElementById('fbTitle').textContent = 'Impulso!';
+    document.getElementById('fbText').textContent = 'Ação impulsiva! Você perdeu o combo e deve voltar 1 casa no tabuleiro.';
+    document.getElementById('fbPoints').textContent = '+0 pontos — Combo perdido';
+    document.getElementById('fbPoints').className = 'feedback-points zero';
+    document.getElementById('btnNext').classList.remove('hidden');
+    await updatePlayerScore();
+    state.history.unshift({ question: '⚡ Casa Especial: IMPULSO', correct: false, points: 0, category: 'Especial' });
+  } else if (type === 'reevaluate') {
+    const color = state.currentColor || ['red','blue','yellow','green'][Math.floor(Math.random()*4)];
+    const available = ALL_QUESTIONS.filter(q => q.categoria === color && !state.usedQuestions.includes(q));
+    const pool = available.length > 0 ? available : ALL_QUESTIONS.filter(q => !state.usedQuestions.includes(q));
+    
+    if (pool.length === 0) { alert('🔄 Nenhuma pergunta disponível!'); state.specialUsedThisRound = false; return; }
+    
+    const q = pool[Math.floor(Math.random() * pool.length)];
+    state.usedQuestions.push(q);
+    
+    const fb = document.getElementById('feedback');
+    fb.classList.remove('hidden', 'correct', 'wrong');
+    fb.classList.add('correct', 'feedback-special');
+    document.getElementById('fbIcon').textContent = '🔄';
+    document.getElementById('fbTitle').textContent = 'Reavaliação!';
+    document.getElementById('fbText').textContent = 'Você escolheu refletir novamente. Nova pergunta na mesma rodada!';
+    document.getElementById('fbPoints').textContent = 'Responda para continuar';
+    document.getElementById('fbPoints').className = 'feedback-points';
+    document.getElementById('comboLossMsg').classList.add('hidden');
+    
+    setTimeout(() => { showQuestion(q, color); }, 1500);
+    state.history.unshift({ question: '🔄 Casa Especial: REAVALIAÇÃO', correct: null, points: 0, category: 'Especial' });
+  }
+  
+  // Disable special buttons
+  document.querySelectorAll('.special-btn').forEach(btn => btn.disabled = true);
+}
+
+// ===== GAME FLOW =====
+function resetPhase() {
+  state.specialUsedThisRound = false;
+  document.getElementById('phase-color').classList.remove('hidden');
+  document.getElementById('phase-question').classList.add('hidden');
+  document.getElementById('feedback').classList.add('hidden');
+  document.getElementById('btnNext').classList.add('hidden');
+  document.getElementById('comboLossMsg').classList.add('hidden');
+  enableButtons(true);
+  document.querySelectorAll('.special-btn').forEach(btn => btn.disabled = false);
+}
+
+function selectColor(color) {
+  if (!state.gameActive || !isMyTurn()) return;
+  state.currentColor = color;
+  const available = ALL_QUESTIONS.filter(q => q.categoria === color && !state.usedQuestions.includes(q));
+  const pool = available.length > 0 ? available : ALL_QUESTIONS.filter(q => !state.usedQuestions.includes(q));
+  if (pool.length === 0) { alert('Perguntas esgotadas!'); return; }
+  const q = pool[Math.floor(Math.random() * pool.length)];
+  state.usedQuestions.push(q);
+  showQuestion(q, color);
+}
+
+function isMyTurn() {
+  return state.playerOrder[state.currentTurnIndex] === state.playerId;
+}
+
+function showQuestion(q, color) {
+  state.currentQuestion = q;
+  state.totalQuestions++;
+  
+  document.getElementById('phase-color').classList.add('hidden');
+  document.getElementById('phase-question').classList.remove('hidden');
+  
+  const catEl = document.getElementById('qCategory');
+  catEl.textContent = CATEGORY_MAP[color];
+  catEl.className = 'question-category ' + CATEGORY_CLASS[color];
+  document.getElementById('qNum').textContent = 'Q' + state.totalQuestions;
+  document.getElementById('qText').textContent = q.pergunta;
+  document.getElementById('optA').textContent = q.opcaoA;
+  document.getElementById('optB').textContent = q.opcaoB;
+  
+  document.querySelectorAll('.option-btn').forEach(btn => btn.className = 'option-btn');
+  document.getElementById('feedback').classList.add('hidden');
+  document.getElementById('btnNext').classList.add('hidden');
+  enableButtons(false);
+}
+
+function answer(choice) {
+  if (!state.gameActive || state.finished || !isMyTurn()) return;
+  const q = state.currentQuestion;
+  const isCorrect = choice === q.correta;
+  
+  document.querySelectorAll('.option-btn').forEach(btn => btn.classList.add('disabled'));
+  const selected = document.querySelector(`.option-btn[data-resp="${choice}"]`);
+  if (isCorrect) selected.classList.add('selected-correct');
+  else {
+    selected.classList.add('selected-wrong');
+    const correctBtn = document.querySelector(`.option-btn[data-resp="${q.correta}"]`);
+    if (correctBtn) correctBtn.classList.add('reveal-correct');
+  }
+  
+  let points = 0;
+  if (isCorrect) {
+    state.combo++;
+    if (state.combo > state.maxCombo) state.maxCombo = state.combo;
+    state.correctAnswers++;
+    const bonus = BONUS_MAP[state.currentColor];
+    const comboBonus = state.combo >= 4 ? 25 : state.combo === 3 ? 20 : state.combo === 2 ? 15 : 0;
+    points = 10 + comboBonus + bonus;
+    state.score += points;
+    showFloatingScore('+' + points, true);
+  } else {
+    if (state.combo > 0) {
+      showComboBreak();
+      document.getElementById('comboLossMsg').textContent = '⚠️ Combo perdido! Volte 1 casa no tabuleiro.';
+      document.getElementById('comboLossMsg').classList.remove('hidden');
+    }
+    state.combo = 0;
+    showFloatingScore('0', false);
+  }
+  
+  updatePlayerScore();
+  updateHUD(); updateLevel();
+  
+  const fb = document.getElementById('feedback');
+  fb.classList.remove('hidden', 'correct', 'wrong');
+  fb.classList.add(isCorrect ? 'correct' : 'wrong');
+  document.getElementById('fbIcon').textContent = isCorrect ? '✅' : '❌';
+  document.getElementById('fbTitle').textContent = isCorrect ? 'Acertou!' : 'Errou!';
+  document.getElementById('fbText').textContent = q.explicacao;
+  const fbPoints = document.getElementById('fbPoints');
+  fbPoints.textContent = isCorrect ? `+${points} pontos` : '+0 pontos';
+  fbPoints.className = 'feedback-points' + (isCorrect ? '' : ' zero');
+  document.getElementById('btnNext').classList.remove('hidden');
+  
+  state.history.unshift({
+    question: q.pergunta.substring(0, 60) + (q.pergunta.length > 60 ? '...' : ''),
+    correct: isCorrect, points, category: CATEGORY_MAP[state.currentColor]
+  });
+}
+
+async function updatePlayerScore() {
+  const playerRef = doc(db, `rooms/${state.roomId}/players/${state.playerId}`);
+  await updateDoc(playerRef, { score: state.score });
+}
+
+async function nextRound() {
+  if (!state.gameActive || state.finished) return;
+  
+  const roomRef = doc(db, "rooms", state.roomId);
+  const nextIndex = (state.currentTurnIndex + 1) % state.playerOrder.length;
+  
+  console.log("Mudando turno de", state.currentTurnIndex, "para", nextIndex);
+  console.log("Próximo jogador:", state.playerOrder[nextIndex]);
+  
+  // Atualiza no Firebase
+  await updateDoc(roomRef, { 
+    currentTurnIndex: nextIndex,
+    lastTurnChange: serverTimestamp()
+  });
+  
+  // Atualiza localmente também
+  state.currentTurnIndex = nextIndex;
+  updateTurnIndicator();
+  resetPhase();
+}
+
+async function finishMatch() {
+  if (state.finished) return;
+  state.finished = true;
+  
+  const roomRef = doc(db, "rooms", state.roomId);
+  const playerRef = doc(roomRef, "players", state.playerId);
+  
+  await updateDoc(playerRef, { finished: true, finalScore: state.score });
+  
+  // Notify others
+  showNotification('Finalização', `${state.playerName} finalizou o jogo!`);
+  
+  document.getElementById('btnFinish').textContent = '✅ Finalizado';
+  document.getElementById('btnFinish').disabled = true;
+  
+  // Check if all finished
+  checkAllFinished(roomRef);
+}
+
+async function checkAllFinished(roomRef) {
+  const snap = await getDocs(collection(roomRef, "players"));
+  const allFinished = snap.docs.every(d => {
+    const data = d.data();
+    return data.finished || data.left;
+  });
+  
+  if (allFinished) {
+    await updateDoc(roomRef, { status: 'ended', endTime: serverTimestamp() });
+  }
+}
+
+async function leaveGame() {
+  if (confirm('Tem certeza que deseja sair da partida? Você não poderá voltar.')) {
+    try {
+      const playerRef = doc(db, `rooms/${state.roomId}/players/${state.playerId}`);
+      await updateDoc(playerRef, { left: true });
+      state.left = true;
+    } catch(e) {}
+    cleanup();
+    showHomeScreen();
+  }
+}
+
+function cleanup() {
+  if (state.roomUnsub) state.roomUnsub();
+  if (state.playerUnsub) state.playerUnsub();
+  if (state.timerInterval) clearInterval(state.timerInterval);
+}
+
+async function endMatch(roomRef) {
+  await updateDoc(roomRef, { status: 'ended', endTime: serverTimestamp() });
+  showMatchResults(roomRef);
+}
+
+async function showMatchResults(roomRef) {
+  state.gameActive = false;
+  cleanup();
+  
+  // Helpers seguros para manipular DOM sem quebrar
+  const hide = (id) => { const el = document.getElementById(id); if(el) el.classList.add('hidden'); };
+  const show = (id) => { const el = document.getElementById(id); if(el) el.classList.remove('hidden'); };
+  const setText = (id, val) => { const el = document.getElementById(id); if(el) el.textContent = val; };
+
+  hide('phase-color'); hide('phase-question'); hide('feedback'); hide('btnNext');
+  hide('actionButtons'); hide('timerDisplay'); hide('turnIndicator');
+  show('endSection');
+
+  // Busca jogadores ordenados por pontuação
+  const snap = await getDocs(query(collection(roomRef, "players"), orderBy("score", "desc")));
+  const players = [];
+  let rank = 1;
+  
+  snap.forEach((d) => {
+    const p = d.data();
+    if (!p.left) {
+      // Garante que o nome sempre tenha um fallback
+      p.rank = rank++;
+      players.push({ 
+        id: d.id, 
+        name: p.name || p.username || 'Jogador', 
+        score: p.score || 0, 
+        finished: p.finished, 
+        ...p 
+      });
+    }
+  });
+
+  const myPlayer = players.find(p => p.id === state.playerId);
+  const winner = players[0];
+
+  // Renderiza ranking final com segurança
+  const finalList = document.getElementById('finalRankingList');
+  if (finalList) {
+    finalList.innerHTML = players.map((p, i) => {
+      const isCurrent = p.id === state.playerId;
+      const posClass = i === 0 ? 'gold' : i === 1 ? 'silver' : i === 2 ? 'bronze' : '';
+      const medals = ['🥇', '🥈', ''];
+      return `<li class="ranking-item ${isCurrent ? 'current' : ''}">
+        <span class="rk-pos ${posClass}">${i < 3 ? medals[i] : (i + 1)}</span>
+        <span class="rk-name">${p.name} ${isCurrent ? '<span class="rk-current-tag">VOCÊ</span>' : ''}</span>
+        <span class="rk-score">${p.score} pts</span></li>`;
+    }).join('');
+  }
+
+  // Atualiza textos apenas se os elementos existirem
+  setText('endScore', state.score);
+  setText('endRank', myPlayer?.rank || '-');
+  setText('endCorrect', state.correctAnswers);
+  setText('endTotal', state.totalQuestions);
+  setText('endSubtitle', `Partida encerrada • ${players.length} jogadores • ${myPlayer?.rank || '?'}º lugar`);
+
+  // Badge de vencedor
+  const badge = document.getElementById('winnerBadge');
+  if (badge) {
+    if (myPlayer?.id === winner?.id && !state.left) {
+      badge.classList.remove('hidden');
+      saveMatchWin(myPlayer.name, state.score);
+      spawnConfetti();
+    } else {
+      badge.classList.add('hidden');
+    }
+  }
+}
+
+async function saveMatchWin(name, score) {
+  try {
+    const docId = name.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
+    const docRef = doc(db, "tcc_players", docId);
+    const snap = await docRef.get().catch(() => ({ exists: () => false }));
+    const current = snap.exists() ? snap.data() : { wins: 0, bestScore: 0, matchesPlayed: 0 };
+    const newBest = Math.max(current.bestScore || 0, score);
+    await setDoc(docRef, {
+      name, wins: (current.wins || 0) + 1, bestScore: newBest,
+      matchesPlayed: (current.matchesPlayed || 0) + 1, lastUpdated: serverTimestamp()
+    }, { merge: true });
+  } catch(e) { console.warn("Erro ao salvar vitória:", e); }
+}
+
+// ===== VISUAL EFFECTS =====
+function showFloatingScore(text, positive) {
+  const el = document.createElement('div');
+  el.className = 'float-score ' + (positive ? 'positive' : 'negative');
+  el.textContent = text;
+  el.style.left = '50%'; el.style.top = '30%'; el.style.transform = 'translateX(-50%)';
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 800);
+}
+
+function showComboBreak() {
+  const el = document.createElement('div');
+  el.className = 'combo-break';
+  el.innerHTML = '<span class="combo-break-text">💥 COMBO PERDIDO!</span>';
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 700);
+}
+
+function spawnConfetti() {
+  const colors = ['#00d4ff', '#00ff88', '#b44aff', '#ffe44d', '#ff2d75', '#ff8844'];
+  for (let i = 0; i < 50; i++) {
+    setTimeout(() => {
+      const piece = document.createElement('div');
+      piece.className = 'confetti-piece';
+      piece.style.left = Math.random() * 100 + 'vw';
+      piece.style.background = colors[Math.floor(Math.random() * colors.length)];
+      piece.style.borderRadius = Math.random() > 0.5 ? '50%' : '2px';
+      piece.style.width = (Math.random() * 8 + 4) + 'px';
+      piece.style.height = piece.style.width;
+      piece.style.animationDuration = (Math.random() * 2 + 2) + 's';
+      document.body.appendChild(piece);
+      setTimeout(() => piece.remove(), 4000);
+    }, i * 30);
+  }
+}
+
+function createParticles() {
+  const container = document.getElementById('particles');
+  for (let i = 0; i < 25; i++) {
+    const p = document.createElement('div');
+    p.className = 'particle';
+    p.style.left = Math.random() * 100 + '%';
+    p.style.animationDuration = (Math.random() * 15 + 10) + 's';
+    p.style.animationDelay = (Math.random() * 10) + 's';
+    p.style.width = (Math.random() * 3 + 1) + 'px';
+    p.style.height = p.style.width;
+    const colors = ['var(--neon-blue)', 'var(--neon-green)', 'var(--neon-purple)'];
+    p.style.background = colors[Math.floor(Math.random() * colors.length)];
+    container.appendChild(p);
+  }
+}
+
+// ===== EVENT LISTENERS =====
+function initEventListeners() {
+  // --- TELA DE LOGIN ---
+  const btnLogin = document.getElementById('btnLogin');
+  if (btnLogin) btnLogin.addEventListener('click', login);
+  
+  const inputLogin = document.getElementById('loginName');
+  if (inputLogin) inputLogin.addEventListener('keydown', e => { if (e.key === 'Enter') login(); });
+
+  // --- TELA HOME (INICIAL) ---
+  const btnCreate = document.getElementById('btnCreateRoomHome');
+  if (btnCreate) btnCreate.addEventListener('click', () => { console.log("Criar clicado"); createRoom(); });
+  
+  const btnJoin = document.getElementById('btnJoinRoomHome');
+  if (btnJoin) btnJoin.addEventListener('click', () => { console.log("Entrar clicado"); joinRoomInput(); });
+  
+  const btnLogout = document.getElementById('btnLogout');
+  if (btnLogout) btnLogout.addEventListener('click', logout);
+
+  // --- LOBBY ---
+  const btnStart = document.getElementById('btnStartAsHost');
+  if (btnStart) btnStart.addEventListener('click', startGameAsHost);
+  
+  const btnLeaveLobby = document.getElementById('btnLeaveLobby');
+  if (btnLeaveLobby) btnLeaveLobby.addEventListener('click', () => { cleanup(); showHomeScreen(); });
+
+  // --- JOGO (Cores e Opções) ---
+  document.querySelectorAll('.color-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      console.log("Cor clicada:", btn.dataset.cor);
+      selectColor(btn.dataset.cor);
+    });
+  });
+  
+  document.querySelectorAll('.option-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      console.log("Opção clicada:", btn.dataset.resp);
+      answer(btn.dataset.resp);
+    });
+  });
+
+  // --- JOGO (Botões de Ação) ---
+  const btnNext = document.getElementById('btnNext');
+  if (btnNext) btnNext.addEventListener('click', nextRound);
+  
+  const btnFinish = document.getElementById('btnFinish');
+  if (btnFinish) btnFinish.addEventListener('click', finishMatch);
+  
+  const btnLeaveGame = document.getElementById('btnLeave');
+  if (btnLeaveGame) btnLeaveGame.addEventListener('click', leaveGame);
+  
+  const btnNewMatch = document.getElementById('btnNewMatch');
+  if (btnNewMatch) btnNewMatch.addEventListener('click', () => { cleanup(); showHomeScreen(); });
+
+  // --- ABAS ---
+  document.querySelectorAll('.nav-tab').forEach(tab => {
+    tab.addEventListener('click', () => switchTab(tab.dataset.tab));
+  });
+
+  // --- CASAS ESPECIAIS ---
+  const btnInsight = document.getElementById('btnInsight');
+  if (btnInsight) btnInsight.addEventListener('click', () => useSpecialHouse('insight'));
+  
+  const btnImpulse = document.getElementById('btnImpulse');
+  if (btnImpulse) btnImpulse.addEventListener('click', () => useSpecialHouse('impulse'));
+  
+  const btnReevaluate = document.getElementById('btnReevaluate');
+  if (btnReevaluate) btnReevaluate.addEventListener('click', () => useSpecialHouse('reevaluate'));
+}
+
+// ===== INIT =====
+function init() {
+  createParticles();
+  
+  // Verifica se já tem usuário logado
+  const savedUser = localStorage.getItem('tcc_currentUser');
+  
+  if (savedUser) {
+    currentUser = savedUser;
+    console.log("✅ Usuário logado automaticamente:", currentUser);
+    initGlobalRankingHome();
+    showScreen('screen-home');
+  } else {
+    console.log("ℹ️ Nenhum usuário logado, mostrando login.");
+    showScreen('screen-login');
+  }
+  
+  // Inicia os botões
+  initEventListeners();
+  console.log("🎮 Sistema iniciado com sucesso!");
+}
+
+// Inicia o app
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', init);
+} else {
+  init();
+}
+</script>
+</body>
+</html>
